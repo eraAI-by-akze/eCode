@@ -8,13 +8,14 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "package:mac": "pnpm build && electron-builder --mac",
     "package:win": "pnpm build && electron-builder --win",
     "package:linux": "pnpm build && electron-builder --linux"
   },
   "dependencies": {
-    "electron-updater": "^6.1.0",
-    "liquid-glass-react": "^1.1.1"
+    "electron-updater": "^6.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -30,5 +31,46 @@
     "typescript": "^5.4.0",
     "vite": "^5.0.0",
     "zustand": "^4.5.0"
+  },
+  "author": "eraAI",
+  "build": {
+    "appId": "com.eraai.ecode",
+    "productName": "eCode",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
   }
 }
