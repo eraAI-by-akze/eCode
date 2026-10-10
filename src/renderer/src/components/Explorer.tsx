@@ -3,6 +3,7 @@ import type { DirEntry } from '@shared/types'
 import { useStore, setState, getState } from '../store'
 import * as a from '../actions'
 import { focusEditor } from '../editorService'
+import * as scm from '../scm'
 import { basename, dirname, relative } from '../lib/path'
 import {
   FileIcon,
@@ -15,6 +16,7 @@ import {
 } from './Icons'
 
 const ROW = 24
+const GIT_LETTER: Record<scm.Decoration, string> = { modified: 'M', added: 'A', untracked: 'U', deleted: 'D', conflict: '!' }
 const api = window.ecode
 
 type Row =
@@ -144,7 +146,22 @@ export function Explorer() {
   const active = useStore((s) => s.active)
   const dirtyPaths = useStore((s) => s.tabs.filter((t) => t.dirty).map((t) => t.path).join('\n'))
   const recent = useStore((s) => s.settings.recent)
+  const git = useStore((s) => s.git)
   const rows = useRows()
+  const deco = useMemo(() => {
+    const files = new Map<string, scm.Decoration>()
+    const dirs = new Set<string>()
+    if (git && root) {
+      for (const f of git.files) {
+        files.set(f.path, scm.decorationOf(f))
+        for (let d = dirname(f.path); d.startsWith(root) && d !== root && !dirs.has(d); d = dirname(d)) {
+          dirs.add(d)
+          if (dirname(d) === d) break
+        }
+      }
+    }
+    return { files, dirs }
+  }, [git, root])
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(600)
@@ -281,10 +298,11 @@ export function Explorer() {
               const { entry, depth, open } = row
               const isSel = selected === entry.path
               const isActive = active === entry.path
+              const kind = deco.files.get(entry.path) ?? (entry.isDir && deco.dirs.has(entry.path) ? 'dir' : null)
               return (
                 <div
                   key={entry.path}
-                  className={`tree-row ${isSel ? 'selected' : ''} ${isActive ? 'active' : ''} ${dirty.has(entry.path) ? 'dirty' : ''}`}
+                  className={`tree-row ${isSel ? 'selected' : ''} ${isActive ? 'active' : ''} ${dirty.has(entry.path) ? 'dirty' : ''} ${kind ? `deco-${kind}` : ''}`}
                   style={{ paddingLeft: 10 + depth * 14 }}
                   onClick={() => activate(entry)}
                   onDoubleClick={() => !entry.isDir && focusEditor()}
@@ -311,7 +329,13 @@ export function Explorer() {
                     <FileIcon name={entry.name} />
                   )}
                   <span className="tree-label">{entry.name}</span>
-                  {dirty.has(entry.path) && <span className="dirty-dot" />}
+                  {dirty.has(entry.path) ? (
+                    <span className="dirty-dot" />
+                  ) : kind && kind !== 'dir' ? (
+                    <span className="git-letter">{GIT_LETTER[kind]}</span>
+                  ) : kind === 'dir' ? (
+                    <span className="git-dot" />
+                  ) : null}
                 </div>
               )
             })}

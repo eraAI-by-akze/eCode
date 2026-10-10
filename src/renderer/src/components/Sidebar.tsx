@@ -2,8 +2,9 @@ import { useStore } from '../store'
 import { Explorer } from './Explorer'
 import { SearchView } from './SearchView'
 import { SettingsView } from './SettingsView'
+import { ScmView } from './ScmView'
 
-const TITLES = { explorer: 'Проводник', search: 'Поиск', settings: 'Настройки' } as const
+const TITLES = { explorer: 'Проводник', search: 'Поиск', scm: 'Система контроля версий', settings: 'Настройки' } as const
 
 export function Sidebar() {
   const view = useStore((s) => s.sidebar)
@@ -14,6 +15,7 @@ export function Sidebar() {
       <div className="sidebar-body">
         {view === 'explorer' && <Explorer />}
         {view === 'search' && <SearchView />}
+        {view === 'scm' && <ScmView />}
         {view === 'settings' && <SettingsView />}
       </div>
     </section>

@@ -3,6 +3,8 @@ import { join } from 'path'
 import { registerFsHandlers } from './fs'
 import { registerTerminalHandlers, killAllTerminals } from './terminal'
 import { registerSettingsHandlers, flushSettings } from './settings'
+import { registerLspHandlers, stopAllLanguageServers } from './lsp'
+import { registerGitHandlers } from './git'
 
 const isMac = process.platform === 'darwin'
 
@@ -169,6 +171,8 @@ app.whenReady().then(() => {
   registerWindowHandlers()
   registerFsHandlers(() => mainWindow)
   registerTerminalHandlers()
+  registerLspHandlers(() => mainWindow)
+  registerGitHandlers()
   registerSettingsHandlers()
   createWindow()
 
@@ -185,6 +189,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   killAllTerminals()
+  stopAllLanguageServers()
   flushSettings()
 })
 

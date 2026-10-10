@@ -1,6 +1,9 @@
 import * as a from './actions'
 import * as ed from './editorService'
+import * as scm from './scm'
+import * as term from './terminalService'
 import { getState } from './store'
+import { extname, isUntitled } from './lib/path'
 
 export interface Command {
   id: string
@@ -9,14 +12,48 @@ export interface Command {
   keys?: string[]
   run: () => void
   when?: () => boolean
+  /** Also fires while the terminal has focus (otherwise the key goes to the shell). */
+  global?: boolean
 }
 
 const hasFile = (): boolean => !!getState().active
 const hasRoot = (): boolean => !!getState().root
+const hasRepo = (): boolean => !!getState().git
+const hasRealFile = (): boolean => {
+  const p = getState().active
+  return !!p && !isUntitled(p) && !p.startsWith('diff:')
+}
+
+const quote = (p: string): string =>
+  window.ecode.platform === 'win32' ? `"${p}"` : `"${p.replace(/(["\\$`])/g, '\\$1')}"`
+
+const RUNNERS: Record<string, (q: string) => string> = {
+  py: (q) => `${window.ecode.platform === 'win32' ? 'python' : 'python3'} ${q}`,
+  js: (q) => `node ${q}`,
+  mjs: (q) => `node ${q}`,
+  cjs: (q) => `node ${q}`,
+  ts: (q) => `npx --yes tsx ${q}`,
+  sh: (q) => `bash ${q}`,
+  rb: (q) => `ruby ${q}`,
+  go: (q) => `go run ${q}`,
+  ps1: (q) => `pwsh -File ${q}`
+}
+
+async function runActiveFile(): Promise<void> {
+  const p = getState().active
+  if (!p) return
+  const runner = RUNNERS[extname(p)]
+  if (!runner) {
+    a.toast('Не знаю, как запустить этот тип файла')
+    return
+  }
+  await a.save(p)
+  await term.runInTerminal(runner(quote(p)))
+}
 
 export const COMMANDS: Command[] = [
-  { id: 'quickOpen', label: 'Перейти к файлу…', keys: ['mod+p'], run: () => a.openQuick('') },
-  { id: 'palette', label: 'Палитра команд', keys: ['mod+shift+p', 'f1'], run: () => a.openQuick('>') },
+  { id: 'quickOpen', label: 'Перейти к файлу…', keys: ['mod+p'], run: () => a.openQuick(''), global: true },
+  { id: 'palette', label: 'Палитра команд', keys: ['mod+shift+p', 'f1'], run: () => a.openQuick('>'), global: true },
   { id: 'goToLine', label: 'Перейти к строке…', keys: ['ctrl+g'], run: () => a.openQuick(':'), when: hasFile },
   { id: 'openFolder', label: 'Открыть папку…', keys: ['mod+o'], run: () => a.openFolder() },
   { id: 'openFile', label: 'Открыть файл…', run: () => a.openFileDialog() },
@@ -38,13 +75,44 @@ export const COMMANDS: Command[] = [
     when: hasFile
   },
   { id: 'closeAll', label: 'Закрыть все вкладки', run: () => a.closeAll() },
-  { id: 'nextTab', label: 'Следующая вкладка', keys: ['ctrl+tab'], run: () => a.cycleTab(1) },
-  { id: 'prevTab', label: 'Предыдущая вкладка', keys: ['ctrl+shift+tab'], run: () => a.cycleTab(-1) },
-  { id: 'explorer', label: 'Показать проводник', keys: ['mod+shift+e'], run: () => a.focusSidebar('explorer') },
-  { id: 'search', label: 'Поиск по файлам', keys: ['mod+shift+f'], run: () => a.focusSidebar('search') },
-  { id: 'settings', label: 'Настройки', keys: ['mod+,'], run: () => a.focusSidebar('settings') },
-  { id: 'toggleSidebar', label: 'Показать/скрыть боковую панель', keys: ['mod+b'], run: () => a.toggleSidebar() },
-  { id: 'togglePanel', label: 'Показать/скрыть терминал', keys: ['mod+j', 'ctrl+`'], run: () => a.togglePanel() },
+  { id: 'nextTab', label: 'Следующая вкладка', keys: ['ctrl+tab'], run: () => a.cycleTab(1), global: true },
+  { id: 'prevTab', label: 'Предыдущая вкладка', keys: ['ctrl+shift+tab'], run: () => a.cycleTab(-1), global: true },
+  { id: 'explorer', label: 'Показать проводник', keys: ['mod+shift+e'], run: () => a.focusSidebar('explorer'), global: true },
+  { id: 'search', label: 'Поиск по файлам', keys: ['mod+shift+f'], run: () => a.focusSidebar('search'), global: true },
+  { id: 'scm', label: 'Git: показать изменения', keys: ['ctrl+shift+g'], run: () => a.focusSidebar('scm'), global: true },
+  { id: 'settings', label: 'Настройки', keys: ['mod+,'], run: () => a.focusSidebar('settings'), global: true },
+  { id: 'toggleSidebar', label: 'Показать/скрыть боковую панель', keys: ['mod+b'], run: () => a.toggleSidebar(), global: true },
+  { id: 'togglePanel', label: 'Показать/скрыть панель', keys: ['mod+j', 'ctrl+`'], run: () => a.togglePanel(), global: true },
+  {
+    id: 'newTerminal',
+    label: 'Новый терминал',
+    keys: ['ctrl+shift+`'],
+    run: () => {
+      a.showPanel('terminal')
+      void term.createTerminal()
+    },
+    global: true
+  },
+  {
+    id: 'killTerminal',
+    label: 'Закрыть активный терминал',
+    run: () => {
+      const id = getState().activeTerminal
+      if (id !== null) term.closeTerminal(id)
+    },
+    when: () => getState().activeTerminal !== null
+  },
+  { id: 'problems', label: 'Показать проблемы', keys: ['mod+shift+m'], run: () => a.showPanel('problems'), global: true },
+  { id: 'runFile', label: 'Запустить текущий файл в терминале', keys: ['ctrl+f5'], run: () => void runActiveFile(), when: hasRealFile },
+  { id: 'gitCommit', label: 'Git: коммит', run: () => scm.commit(), when: hasRepo },
+  { id: 'gitPush', label: 'Git: отправить (push)', run: () => scm.sync('push'), when: hasRepo },
+  { id: 'gitPull', label: 'Git: получить (pull)', run: () => scm.sync('pull'), when: hasRepo },
+  { id: 'gitFetch', label: 'Git: fetch', run: () => scm.sync('fetch'), when: hasRepo },
+  { id: 'gitBranch', label: 'Git: сменить ветку…', run: () => scm.pickBranch(), when: hasRepo },
+  { id: 'gitInit', label: 'Git: инициализировать репозиторий', run: () => scm.initRepo(), when: () => hasRoot() && !hasRepo() },
+  { id: 'restartLsp', label: 'Перезапустить языковые серверы', run: () => a.restartLanguageServers(), when: hasRoot },
+  { id: 'goToDefinition', label: 'Перейти к определению', run: () => ed.runEditorAction('editor.action.revealDefinition'), when: hasRealFile },
+  { id: 'renameSymbol', label: 'Переименовать символ', run: () => ed.runEditorAction('editor.action.rename'), when: hasRealFile },
   { id: 'theme', label: 'Сменить тему…', run: () => a.pickTheme() },
   { id: 'language', label: 'Сменить язык файла…', run: () => a.pickLanguage(), when: hasFile },
   {
@@ -70,10 +138,10 @@ export const COMMANDS: Command[] = [
     run: () => a.updateSettings({ wordWrap: !getState().settings.wordWrap })
   },
   { id: 'minimap', label: 'Мини-карта: вкл/выкл', run: () => a.updateSettings({ minimap: !getState().settings.minimap }) },
-  { id: 'zoomIn', label: 'Увеличить шрифт', keys: ['mod+=', 'mod+shift+='], run: () => a.zoom(1) },
-  { id: 'zoomOut', label: 'Уменьшить шрифт', keys: ['mod+-'], run: () => a.zoom(-1) },
-  { id: 'zoomReset', label: 'Сбросить размер шрифта', keys: ['mod+0'], run: () => a.zoom(0) },
-  { id: 'devtools', label: 'Инструменты разработчика', keys: ['mod+shift+i'], run: () => window.ecode.toggleDevTools() }
+  { id: 'zoomIn', label: 'Увеличить шрифт', keys: ['mod+=', 'mod+shift+='], run: () => a.zoom(1), global: true },
+  { id: 'zoomOut', label: 'Уменьшить шрифт', keys: ['mod+-'], run: () => a.zoom(-1), global: true },
+  { id: 'zoomReset', label: 'Сбросить размер шрифта', keys: ['mod+0'], run: () => a.zoom(0), global: true },
+  { id: 'devtools', label: 'Инструменты разработчика', keys: ['mod+shift+i'], run: () => window.ecode.toggleDevTools(), global: true }
 ]
 
 const isMac = window.ecode.platform === 'darwin'
@@ -94,17 +162,25 @@ export function eventToKeys(e: KeyboardEvent): string {
   else if (e.code === 'Equal') key = '='
   else if (e.code === 'Minus') key = '-'
   else if (e.code === 'Comma') key = ','
+  else if (e.code === 'Enter') key = 'enter'
   parts.push(key)
   return parts.join('+')
 }
 
+const MOD_ORDER = ['mod', 'ctrl', 'meta', 'alt', 'shift']
+
+/** Put modifiers in the same order eventToKeys() emits them. */
+function normalizeKeys(k: string): string {
+  const parts = k.split('+')
+  const key = parts.pop()!
+  // On macOS "ctrl+g" etc. stay literal ctrl; elsewhere ctrl is the mod key.
+  const mods = new Set(parts.map((p) => (!isMac && p === 'ctrl' ? 'mod' : p)))
+  return [...MOD_ORDER.filter((m) => mods.has(m)), key].join('+')
+}
+
 const byKeys = new Map<string, Command>()
 for (const c of COMMANDS) {
-  for (const k of c.keys ?? []) {
-    // On macOS "ctrl+g" etc. stay literal ctrl; elsewhere ctrl is the mod key.
-    const normalized = !isMac ? k.replace(/^ctrl\+/, 'mod+') : k
-    byKeys.set(normalized, c)
-  }
+  for (const k of c.keys ?? []) byKeys.set(normalizeKeys(k), c)
 }
 
 export function commandForEvent(e: KeyboardEvent): Command | undefined {

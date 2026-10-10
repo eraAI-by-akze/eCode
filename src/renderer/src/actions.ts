@@ -1,5 +1,8 @@
 import type { Settings } from '@shared/types'
 import * as ed from './editorService'
+import * as lsp from './lspClient'
+import { monaco } from './monaco'
+import { refreshGit } from './scm'
 import { getState, setState, useStore, type PickItem, type SidebarView } from './store'
 import { THEMES, THEME_LIST, applyThemeVars } from './themes'
 import { basename, dirname, isInside, isUntitled } from './lib/path'
@@ -40,10 +43,12 @@ export function updateSettings(patch: Partial<Settings>): void {
   }
 }
 
+const isVirtual = (p: string): boolean => isUntitled(p) || p.startsWith('diff:')
+
 function persistSession(): void {
   const { tabs, active } = getState()
-  const real = tabs.map((t) => t.path).filter((p) => !isUntitled(p))
-  updateSettings({ openFiles: real, activeFile: active && !isUntitled(active) ? active : null })
+  const real = tabs.map((t) => t.path).filter((p) => !isVirtual(p))
+  updateSettings({ openFiles: real, activeFile: active && !isVirtual(active) ? active : null })
 }
 
 function syncDirtyFlag(): void {
@@ -58,6 +63,30 @@ export async function init(): Promise<void> {
 
   api.onMaximizedChange((maximized) => setState({ maximized }))
   api.onFsChange(onFsChange)
+  window.addEventListener('focus', () => refreshGit(100))
+
+  lsp.initLsp({
+    loadModel: (path) => openFile(path, { background: true, silent: true }),
+    notify: toast,
+    models: ed.allModels
+  })
+  // Go to definition in another file lands here.
+  monaco.editor.registerEditorOpener({
+    openCodeEditor(_source, resource, selectionOrPosition) {
+      if (resource.scheme !== 'file') return false
+      let line: number | undefined
+      let column: number | undefined
+      if (selectionOrPosition && 'startLineNumber' in selectionOrPosition) {
+        line = selectionOrPosition.startLineNumber
+        column = selectionOrPosition.startColumn
+      } else if (selectionOrPosition) {
+        line = selectionOrPosition.lineNumber
+        column = selectionOrPosition.column
+      }
+      void openFile(lsp.pathForUri(resource), { line, column })
+      return true
+    }
+  })
 
   // Keep the main process' "unsaved changes" guard in sync.
   let prevDirty = false
@@ -91,6 +120,7 @@ export async function openFolder(path?: string, opts: { restore?: boolean } = {}
     if (r === 0) await saveAll()
   }
   if (!opts.restore) closeAllTabs(true)
+  await lsp.stopAll()
 
   setState({
     root: target,
@@ -98,7 +128,7 @@ export async function openFolder(path?: string, opts: { restore?: boolean } = {}
     expanded: { [target]: true },
     selected: null,
     fileIndex: null,
-    branch: null,
+    git: null,
     sidebar: getState().sidebar ?? 'explorer'
   })
   const recent = [target, ...settings.recent.filter((r) => r !== target)].slice(0, 10)
@@ -106,7 +136,7 @@ export async function openFolder(path?: string, opts: { restore?: boolean } = {}
   api.watch(target)
   document.title = `${basename(target)} — eCode`
   await loadDir(target)
-  api.gitBranch(target).then((branch) => setState({ branch }))
+  refreshGit()
 
   if (opts.restore) {
     const files = settings.openFiles.filter((f) => isInside(target, f))
@@ -126,7 +156,8 @@ export async function closeFolder(): Promise<void> {
   }
   closeAllTabs(true)
   api.watch(null)
-  setState({ root: null, tree: {}, expanded: {}, selected: null, fileIndex: null, branch: null })
+  await lsp.stopAll()
+  setState({ root: null, tree: {}, expanded: {}, selected: null, fileIndex: null, git: null })
   updateSettings({ lastFolder: null, openFiles: [], activeFile: null })
   document.title = 'eCode'
 }
@@ -166,6 +197,7 @@ export async function refreshTree(): Promise<void> {
 async function onFsChange(paths: string[]): Promise<void> {
   const { tree, tabs } = getState()
   setState({ fileIndex: null })
+  refreshGit(300)
   const dirs = new Set<string>()
   for (const p of paths) {
     if (tree[p]) dirs.add(p)
@@ -315,13 +347,14 @@ export async function closeAll(): Promise<void> {
 }
 
 export async function save(path = getState().active): Promise<boolean> {
-  if (!path) return false
+  if (!path || path.startsWith('diff:')) return false
   if (isUntitled(path)) return saveAs(path)
   const content = ed.getContent(path)
   if (content === null) return false
   try {
     await api.writeFile(path, content)
     ed.markSaved(path)
+    refreshGit(150)
     return true
   } catch (err) {
     fail(err)
@@ -330,7 +363,7 @@ export async function save(path = getState().active): Promise<boolean> {
 }
 
 export async function saveAs(path = getState().active): Promise<boolean> {
-  if (!path) return false
+  if (!path || path.startsWith('diff:')) return false
   const content = ed.getContent(path)
   if (content === null) return false
   const root = getState().root
@@ -460,6 +493,16 @@ export function togglePanel(): void {
   setState((s) => ({ panelOpen: !s.panelOpen }))
 }
 
+export function showPanel(tab: 'terminal' | 'problems'): void {
+  setState({ panelOpen: true, panelTab: tab })
+}
+
+export async function restartLanguageServers(): Promise<void> {
+  await lsp.stopAll()
+  for (const [path, model] of ed.allModels()) if (!isUntitled(path)) void lsp.attachModel(path, model)
+  toast('Языковые серверы перезапущены')
+}
+
 export function zoom(delta: number): void {
   const size = delta === 0 ? 14 : Math.max(9, Math.min(32, getState().settings.fontSize + delta))
   updateSettings({ fontSize: size })
@@ -473,6 +516,10 @@ export function openQuick(value = ''): void {
 
 export function pick(placeholder: string, items: PickItem[], onPick: (id: string) => void): void {
   setState({ palette: { kind: 'pick', placeholder, items, onPick } })
+}
+
+export function prompt(placeholder: string, promptText: string, onSubmit: (value: string) => void): void {
+  setState({ palette: { kind: 'input', placeholder, prompt: promptText, onSubmit } })
 }
 
 export function closePalette(): void {
@@ -491,7 +538,7 @@ export function pickTheme(): void {
 
 export function pickLanguage(): void {
   const { active, language } = getState()
-  if (!active) return
+  if (!active || isVirtual(active)) return
   pick(
     'Выберите язык файла',
     ed.languages().map((l) => ({

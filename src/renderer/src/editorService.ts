@@ -1,6 +1,7 @@
 import { monaco } from './monaco'
 import { getState, setState } from './store'
-import { isUntitled } from './lib/path'
+import { basename, extname, isUntitled } from './lib/path'
+import * as lsp from './lspClient'
 
 type Model = monaco.editor.ITextModel
 
@@ -8,6 +9,9 @@ const models = new Map<string, Model>()
 const savedVersions = new Map<string, number>()
 const viewStates = new Map<string, monaco.editor.ICodeEditorViewState | null>()
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
+let diffEditor: monaco.editor.IStandaloneDiffEditor | null = null
+const diffs = new Map<string, { original: Model; modified: Model }>()
+let diffInline = false
 let shownPath: string | null = null
 
 const FONT_FAMILY =
@@ -77,16 +81,15 @@ export function mountEditor(el: HTMLElement): () => void {
     overviewRulerBorder: false,
     renderWhitespace: 'selection',
     linkedEditing: true,
-    'semanticHighlighting.enabled': true
+    'semanticHighlighting.enabled': true,
+    // Peek views need every target model loaded; jump straight to the file instead.
+    gotoLocation: { multiple: 'goto', multipleDefinitions: 'goto', multipleTypeDefinitions: 'goto' }
   })
   const subs = [
     editor.onDidChangeCursorSelection(syncStatus),
-    editor.onDidChangeModel(syncStatus),
-    editor.onDidChangeModelContent(() => {
-      if (shownPath) syncDirty(shownPath)
-    })
+    editor.onDidChangeModel(syncStatus)
   ]
-  if (shownPath) show(shownPath)
+  if (shownPath && models.has(shownPath)) show(shownPath, false)
   return () => {
     subs.forEach((s) => s.dispose())
     if (shownPath && editor) viewStates.set(shownPath, editor.saveViewState())
@@ -95,14 +98,79 @@ export function mountEditor(el: HTMLElement): () => void {
   }
 }
 
+export function mountDiffEditor(el: HTMLElement): () => void {
+  diffEditor = monaco.editor.createDiffEditor(el, {
+    ...diffOptions(),
+    automaticLayout: true,
+    readOnly: true,
+    originalEditable: false,
+    renderSideBySide: !diffInline,
+    ignoreTrimWhitespace: false,
+    renderOverviewRuler: false,
+    scrollBeyondLastLine: false,
+    padding: { top: 12, bottom: 12 },
+    scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false }
+  })
+  if (shownPath && diffs.has(shownPath)) diffEditor.setModel(diffs.get(shownPath)!)
+  return () => {
+    diffEditor?.setModel(null)
+    diffEditor?.dispose()
+    diffEditor = null
+  }
+}
+
+function diffOptions(): monaco.editor.IDiffEditorOptions {
+  return { ...editorOptions(), minimap: { enabled: false }, wordWrap: 'off' }
+}
+
+export function toggleDiffInline(): boolean {
+  diffInline = !diffInline
+  diffEditor?.updateOptions({ renderSideBySide: !diffInline })
+  return diffInline
+}
+
+export function isDiffInline(): boolean {
+  return diffInline
+}
+
+function languageForPath(path: string): string {
+  const ext = '.' + extname(path)
+  const name = basename(path)
+  const lang = monaco.languages
+    .getLanguages()
+    .find((l) => l.filenames?.includes(name) || (ext.length > 1 && l.extensions?.includes(ext)))
+  return lang?.id ?? 'plaintext'
+}
+
+/** Create or refresh the read-only model pair behind a diff tab. */
+export function setDiff(key: string, file: string, original: string, modified: string): void {
+  const existing = diffs.get(key)
+  if (existing) {
+    existing.original.setValue(original)
+    existing.modified.setValue(modified)
+    return
+  }
+  const lang = languageForPath(file)
+  const n = diffs.size + Date.now()
+  diffs.set(key, {
+    original: monaco.editor.createModel(original, lang, monaco.Uri.from({ scheme: 'ecode-diff', path: `/${n}/a/${basename(file)}` })),
+    modified: monaco.editor.createModel(modified, lang, monaco.Uri.from({ scheme: 'ecode-diff', path: `/${n}/b/${basename(file)}` }))
+  })
+}
+
+export function allModels(): [string, Model][] {
+  return [...models.entries()]
+}
+
 export function applyEditorOptions(): void {
   monaco.editor.setTheme(getState().settings.theme)
   editor?.updateOptions(editorOptions())
+  diffEditor?.updateOptions(diffOptions())
   for (const m of models.values()) m.updateOptions({ tabSize: getState().settings.tabSize })
 }
 
 export function hasModel(path: string): boolean {
-  return models.has(path)
+  return models.has(path) || diffs.has(path)
 }
 
 export function createModel(path: string, content: string, language?: string): Model {
@@ -112,18 +180,28 @@ export function createModel(path: string, content: string, language?: string): M
   model.updateOptions({ tabSize: getState().settings.tabSize })
   models.set(path, model)
   savedVersions.set(path, model.getAlternativeVersionId())
+  // Per model, not per editor: rename/refactor edits can touch files in background tabs.
+  model.onDidChangeContent(() => {
+    if (models.get(path) === model) syncDirty(path)
+  })
+  if (!isUntitled(path)) lsp.attachModel(path, model)
   return model
 }
 
 export function show(path: string | null, focus = true): void {
-  if (!editor) {
-    shownPath = path
-    return
-  }
-  if (shownPath && shownPath !== path && models.has(shownPath)) {
+  if (editor && shownPath && shownPath !== path && models.has(shownPath)) {
     viewStates.set(shownPath, editor.saveViewState())
   }
   shownPath = path
+  const diff = path ? diffs.get(path) : undefined
+  if (diff) {
+    editor?.setModel(null)
+    diffEditor?.setModel(diff)
+    setState({ language: diff.modified.getLanguageId(), cursor: { line: 1, column: 1, selected: 0 } })
+    return
+  }
+  diffEditor?.setModel(null)
+  if (!editor) return
   const model = path ? models.get(path) ?? null : null
   editor.setModel(model)
   if (path && model) {
@@ -162,6 +240,7 @@ export function markSaved(path: string): void {
   if (!model) return
   savedVersions.set(path, model.getAlternativeVersionId())
   syncDirty(path)
+  lsp.didSave(model)
 }
 
 export function isDirty(path: string): boolean {
@@ -192,11 +271,23 @@ export function moveModel(from: string, to: string): void {
 }
 
 export function disposeModel(path: string): void {
+  const diff = diffs.get(path)
+  if (diff) {
+    if (shownPath === path) {
+      diffEditor?.setModel(null)
+      shownPath = null
+    }
+    diff.original.dispose()
+    diff.modified.dispose()
+    diffs.delete(path)
+    return
+  }
   const model = models.get(path)
   if (shownPath === path) {
     editor?.setModel(null)
     shownPath = null
   }
+  if (model) lsp.detachModel(model)
   model?.dispose()
   models.delete(path)
   savedVersions.delete(path)
@@ -206,7 +297,9 @@ export function disposeModel(path: string): void {
 export function setLanguage(path: string, languageId: string): void {
   const model = models.get(path)
   if (!model) return
+  lsp.detachModel(model)
   monaco.editor.setModelLanguage(model, languageId)
+  if (!isUntitled(path)) lsp.attachModel(path, model)
   syncStatus()
 }
 

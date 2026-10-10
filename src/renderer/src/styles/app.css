@@ -20,7 +20,8 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  overflow: hidden;
+  /* clip, not hidden: focus must never scroll the window (xterm's hidden textarea would). */
+  overflow: clip;
 }
 
 body {
@@ -87,6 +88,7 @@ kbd {
 
 .app {
   position: relative;
+  overflow: clip;
   display: grid;
   grid-template-rows: var(--titlebar-h) 1fr var(--statusbar-h);
   height: 100%;
@@ -346,6 +348,22 @@ body.resizing-y .resizer-y::after {
 .ab-item.active {
   color: var(--text);
   background: var(--active);
+}
+.ab-badge {
+  position: absolute;
+  right: 3px;
+  bottom: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  color: var(--accent-contrast);
+  background: var(--accent-gradient);
+  box-shadow: 0 0 0 2px var(--bg);
 }
 .ab-item.toggled {
   color: var(--text);
@@ -767,6 +785,18 @@ body.resizing-y .resizer-y::after {
     transform: rotate(360deg);
   }
 }
+.spin {
+  animation: spin 1s linear infinite;
+}
+.spinner.light {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: var(--accent-contrast);
+}
+.spinner.tiny {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
 
 /* settings */
 
@@ -1173,81 +1203,440 @@ body.resizing-y .resizer-y::after {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
   height: 34px;
-  padding: 0 8px 0 14px;
+  padding: 0 6px 0 8px;
   border-bottom: 1px solid var(--border);
 }
 .panel-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
+  color: var(--text-faint);
+}
+.panel-tab:hover {
+  color: var(--text);
 }
 .panel-tab.active {
   color: var(--text);
+  background: var(--hover);
 }
-.panel-cwd {
+.panel-tab .badge {
+  margin: 0;
+  letter-spacing: 0;
+}
+.panel-spacer {
+  flex: 1;
+}
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.panel-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.panel-empty.muted {
+  color: var(--text-faint);
+}
+
+.term-tabs {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+.term-tabs::-webkit-scrollbar {
+  height: 0;
+}
+.term-tab {
+  max-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 4px 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.term-tab:hover {
+  background: var(--hover);
+}
+.term-tab.active {
+  color: var(--text);
+  background: var(--active);
+}
+.term-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.term-tab button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  opacity: 0;
+}
+.term-tab:hover button,
+.term-tab.active button {
+  opacity: 0.7;
+}
+.term-tab button:hover {
+  opacity: 1;
+  background: var(--hover);
+}
+
+.terminal-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+.term-slot {
   flex: 1;
   min-width: 0;
-  font-size: 11.5px;
+  min-height: 0;
+  padding: 6px 4px 4px 12px;
+}
+.term-slot:empty {
+  display: none;
+}
+.xterm-host {
+  width: 100%;
+  height: 100%;
+}
+.xterm-host .xterm {
+  height: 100%;
+}
+.xterm .xterm-viewport {
+  background: transparent !important;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--hover);
+}
+
+/* problems */
+
+.problems {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 6px 10px;
+  user-select: text;
+}
+.problem-file,
+.problem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.problem-file-name {
+  font-weight: 600;
+}
+.problem-file-dir {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-faint);
+  font-size: 12px;
+}
+.problem {
+  padding-left: 30px;
+  cursor: pointer;
+}
+.problem:hover {
+  background: var(--hover);
+}
+.problem-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.problem-src,
+.problem-pos {
+  flex: none;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.sev {
+  flex: none;
+}
+.sev-error {
+  color: var(--danger);
+}
+.sev-warning {
+  color: var(--warning);
+}
+.sev-info {
+  color: var(--accent-2);
+}
+
+/* source control */
+
+.scm-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.scm-branch {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 6px;
+  margin-left: -6px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  text-align: left;
+}
+.scm-branch span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.term-output {
-  flex: 1;
-  min-height: 0;
-  margin: 0;
-  padding: 8px 14px;
-  overflow: auto;
-  font-family: var(--mono);
-  font-size: 12.5px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-all;
-  user-select: text;
+.scm-branch:hover {
+  background: var(--hover);
+}
+.header-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 10px;
+}
+.commit-box textarea {
+  resize: none;
+  font: inherit;
   color: var(--text);
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  outline: none;
+  line-height: 1.45;
 }
-.term-cmd {
-  color: var(--accent);
-  font-weight: 600;
-  margin-top: 4px;
+.commit-box textarea:focus {
+  border-color: var(--accent);
 }
-.term-banner {
-  color: var(--text-faint);
-}
-.term-input-row {
-  flex: none;
+.commit-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px 8px;
-  font-family: var(--mono);
-  font-size: 12.5px;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
 }
-.term-prompt {
-  color: var(--accent-2);
-  font-weight: 600;
+.btn-primary:disabled {
+  filter: grayscale(0.6) opacity(0.5);
+  cursor: default;
+}
+.sync-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.sync-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.scm-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 6px 12px;
+}
+.scm-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.scm-section-header .badge {
+  margin-left: 0;
+  letter-spacing: 0;
+}
+.scm-section-header > span:nth-child(2) {
+  flex: 1;
+}
+.scm-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 24px;
+  border-radius: 6px;
+  cursor: pointer;
   white-space: nowrap;
 }
-.term-prompt.running {
-  animation: pulse 1s ease-in-out infinite;
+.scm-file:hover,
+.scm-section-header:hover {
+  background: var(--hover);
 }
-@keyframes pulse {
-  50% {
-    opacity: 0.4;
-  }
+.scm-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.term-input-row input {
+.scm-dir {
   flex: 1;
-  border: 0;
-  outline: none;
-  background: transparent;
-  font-family: var(--mono);
-  font-size: 12.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.scm-actions {
+  display: none;
+  gap: 1px;
+}
+.scm-file:hover .scm-actions,
+.scm-section-header:hover .scm-actions {
+  display: flex;
+}
+.scm-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--text-muted);
+}
+.scm-actions button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.scm-letter {
+  flex: none;
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 11.5px;
+}
+.scm-clean {
+  padding: 14px;
+  color: var(--text-faint);
+}
+
+/* git decorations (scm list + explorer) */
+
+.deco-modified .scm-name,
+.deco-modified .scm-letter,
+.tree-row.deco-modified .tree-label,
+.tree-row.deco-modified .git-letter {
+  color: var(--warning);
+}
+.deco-added .scm-name,
+.deco-added .scm-letter,
+.deco-untracked .scm-name,
+.deco-untracked .scm-letter,
+.tree-row.deco-added .tree-label,
+.tree-row.deco-added .git-letter,
+.tree-row.deco-untracked .tree-label,
+.tree-row.deco-untracked .git-letter {
+  color: var(--success);
+}
+.deco-deleted .scm-name,
+.deco-deleted .scm-letter,
+.tree-row.deco-deleted .tree-label,
+.tree-row.deco-deleted .git-letter {
+  color: var(--danger);
+}
+.deco-deleted .scm-name {
+  text-decoration: line-through;
+}
+.deco-conflict .scm-name,
+.deco-conflict .scm-letter,
+.tree-row.deco-conflict .tree-label,
+.tree-row.deco-conflict .git-letter {
+  color: var(--accent-2);
+}
+.tree-row.deco-dir .tree-label {
+  color: color-mix(in srgb, var(--warning) 70%, var(--text));
+}
+.git-letter {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+}
+.git-dot {
+  margin-left: auto;
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warning);
+  opacity: 0.7;
+}
+
+/* diff tab bar */
+
+.diff-bar {
+  gap: 8px;
+}
+.diff-label {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text-muted);
+}
+.diff-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+.diff-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.diff-actions button:hover {
+  color: var(--text);
+  background: var(--hover);
 }
 
 /* ───────────────────────── status bar ───────────────────────── */
@@ -1298,6 +1687,9 @@ button.sb-item:hover {
 }
 .sb-dirty {
   color: var(--warning);
+}
+.lsp-error {
+  color: var(--danger);
 }
 
 /* ───────────────────────── palette ───────────────────────── */

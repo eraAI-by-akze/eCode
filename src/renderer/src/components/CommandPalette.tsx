@@ -42,7 +42,7 @@ function highlight(text: string, indices?: number[]): ReactNode {
 export function CommandPalette() {
   const palette = useStore((s) => s.palette)
   if (!palette) return null
-  return <PaletteInner key={palette.kind === 'pick' ? palette.placeholder : 'quick'} />
+  return <PaletteInner key={palette.kind === 'quick' ? 'quick' : `${palette.kind}:${palette.placeholder}`} />
 }
 
 function PaletteInner() {
@@ -55,7 +55,8 @@ function PaletteInner() {
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const mode = palette.kind === 'pick' ? 'pick' : value.startsWith('>') ? 'commands' : value.startsWith(':') ? 'line' : 'files'
+  const mode =
+    palette.kind === 'pick' ? 'pick' : palette.kind === 'input' ? 'input' : value.startsWith('>') ? 'commands' : value.startsWith(':') ? 'line' : 'files'
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -69,6 +70,20 @@ function PaletteInner() {
     const close = (fn: () => void) => () => {
       a.closePalette()
       fn()
+    }
+    if (palette.kind === 'input') {
+      return [
+        {
+          key: 'submit',
+          label: value.trim() ? `${palette.placeholder}: ${value.trim()}` : palette.prompt,
+          icon: <IconSparkle size={13} />,
+          run: () => {
+            if (!value.trim()) return
+            a.closePalette()
+            palette.onSubmit(value)
+          }
+        }
+      ]
     }
     if (palette.kind === 'pick') {
       return rank(palette.items, value, (it: PickItem) => it.label).map(({ item, indices }) => ({
@@ -150,7 +165,7 @@ function PaletteInner() {
   }, [index])
 
   const placeholder =
-    palette.kind === 'pick'
+    palette.kind !== 'quick'
       ? palette.placeholder
       : 'Имя файла · «>» команды · «:» строка'
 

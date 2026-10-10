@@ -1,16 +1,18 @@
 import { useStore, type SidebarView } from '../store'
 import * as a from '../actions'
 import { formatKeys } from '../commands'
-import { IconFiles, IconPalette, IconSearch, IconSettings, IconTerminal } from './Icons'
+import { IconFiles, IconGit, IconPalette, IconSearch, IconSettings, IconTerminal } from './Icons'
 
 const ITEMS: { view: SidebarView; title: string; keys: string; Icon: typeof IconFiles }[] = [
   { view: 'explorer', title: 'Проводник', keys: 'mod+shift+e', Icon: IconFiles },
-  { view: 'search', title: 'Поиск', keys: 'mod+shift+f', Icon: IconSearch }
+  { view: 'search', title: 'Поиск', keys: 'mod+shift+f', Icon: IconSearch },
+  { view: 'scm', title: 'Git', keys: 'ctrl+shift+g', Icon: IconGit }
 ]
 
 export function ActivityBar() {
   const sidebar = useStore((s) => s.sidebar)
   const panelOpen = useStore((s) => s.panelOpen)
+  const changes = useStore((s) => s.git?.files.length ?? 0)
 
   return (
     <aside className="activitybar">
@@ -22,6 +24,7 @@ export function ActivityBar() {
           onClick={() => a.showSidebar(view)}
         >
           <Icon size={22} />
+          {view === 'scm' && changes > 0 && <span className="ab-badge">{changes > 99 ? '99+' : changes}</span>}
         </button>
       ))}
       <button

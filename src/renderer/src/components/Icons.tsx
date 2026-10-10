@@ -109,6 +109,52 @@ export const IconRestore = make(
 )
 export const IconSplit = make(<path d="M4 4h16v16H4zM4 15h16" />)
 
+export const IconGit = make(
+  <>
+    <circle cx="6" cy="6" r="2.2" />
+    <circle cx="6" cy="18" r="2.2" />
+    <circle cx="18" cy="9" r="2.2" />
+    <path d="M6 8.2v7.6M18 11.2c0 3.5-4 3.8-10.2 5.6" />
+  </>
+)
+export const IconMinus = make(<path d="M5 12h14" />)
+export const IconUndo = make(<path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />)
+export const IconCheck = make(<path d="m5 12.5 4.5 4.5L19 7.5" />)
+export const IconArrowUp = make(<path d="M12 19V5M6 11l6-6 6 6" />)
+export const IconArrowDown = make(<path d="M12 5v14M6 13l6 6 6-6" />)
+export const IconSync = make(
+  <>
+    <path d="M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6" />
+    <path d="M18 2.5v4h-4M6 21.5v-4h4" />
+  </>
+)
+export const IconGoToFile = make(
+  <>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 14h6M12.5 11.5 15 14l-2.5 2.5" />
+  </>
+)
+export const IconError = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m9 9 6 6M15 9l-6 6" />
+  </>
+)
+export const IconWarning = make(
+  <>
+    <path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+    <path d="M12 9v4M12 17h.01" />
+  </>
+)
+export const IconInfo = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 16v-5M12 8h.01" />
+  </>
+)
+export const IconPlay = make(<path d="M7 4.5v15l12-7.5z" />)
+export const IconColumns = make(<path d="M4 4h16v16H4zM12 4v16" />)
+
 // ─────────────────────────── file icons ───────────────────────────
 
 const FILE_COLORS: Record<string, [string, string]> = {

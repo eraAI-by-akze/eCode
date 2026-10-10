@@ -28,11 +28,28 @@ self.MonacoEnvironment = {
   }
 }
 
-// Files are opened one at a time without a project graph, so semantic errors
-// about unresolved imports would be pure noise. Keep syntax checks.
+// TS/JS intelligence comes from typescript-language-server (see lspClient.ts),
+// which knows the whole project. Monaco's in-browser service only keeps
+// highlighting helpers; its providers are registered once, so this must run
+// before the first TS model exists.
 const ts = monaco.languages.typescript
 for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {
-  defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false })
+  defaults.setModeConfiguration({
+    completionItems: false,
+    hovers: false,
+    documentSymbols: false,
+    definitions: false,
+    references: false,
+    documentHighlights: true,
+    rename: false,
+    diagnostics: false,
+    documentRangeFormattingEdits: false,
+    signatureHelp: false,
+    onTypeFormattingEdits: true,
+    codeActions: false,
+    inlayHints: false
+  })
+  defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: true })
   defaults.setCompilerOptions({
     target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.ESNext,

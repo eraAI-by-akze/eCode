@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { useStore } from '../store'
+import { useStore, type Tab } from '../store'
+import * as scm from '../scm'
 import * as a from '../actions'
 import * as ed from '../editorService'
 import { basename, relative } from '../lib/path'
 import { formatKeys } from '../commands'
-import { FileIcon, IconChevron, IconClose, Logo } from './Icons'
+import { FileIcon, IconChevron, IconClose, IconColumns, IconGoToFile, IconMinus, IconPlus, Logo } from './Icons'
 
 const api = window.ecode
 
@@ -50,8 +51,8 @@ function Tabs() {
               { id: 'others', label: 'Закрыть остальные' },
               { id: 'all', label: 'Закрыть все' },
               { type: 'separator' },
-              { id: 'reveal', label: 'Показать в проводнике', enabled: !t.path.startsWith('untitled:') },
-              { id: 'copy', label: 'Копировать путь', enabled: !t.path.startsWith('untitled:') }
+              { id: 'reveal', label: 'Показать в проводнике', enabled: !t.path.startsWith('untitled:') && !t.diff },
+              { id: 'copy', label: 'Копировать путь', enabled: !t.path.startsWith('untitled:') && !t.diff }
             ])
             if (id === 'close') a.closeTab(t.path)
             if (id === 'others') a.closeOthers(t.path)
@@ -60,7 +61,7 @@ function Tabs() {
             if (id === 'copy') navigator.clipboard.writeText(t.path)
           }}
         >
-          <FileIcon name={t.name} size={15} />
+          <FileIcon name={t.diff ? basename(t.diff.file) : t.name} size={15} />
           <span className="tab-name">{t.name}</span>
           {(names.get(t.name) ?? 0) > 1 && (
             <span className="tab-hint">{basename(t.path.slice(0, t.path.length - t.name.length - 1))}</span>
@@ -105,6 +106,43 @@ function Breadcrumbs() {
           {i < parts.length - 1 && <IconChevron size={12} />}
         </span>
       ))}
+    </div>
+  )
+}
+
+function DiffBar({ tab }: { tab: Tab & { diff: NonNullable<Tab['diff']> } }) {
+  const root = useStore((s) => s.root)
+  const file = useStore((s) => s.git?.files.find((f) => f.path === tab.diff.file))
+  const [inline, setInline] = useState(ed.isDiffInline())
+  return (
+    <div className="breadcrumbs diff-bar">
+      <FileIcon name={basename(tab.diff.file)} size={13} />
+      <span className="crumb last">{relative(root, tab.diff.file)}</span>
+      <span className="diff-label">{tab.diff.staged ? 'HEAD ↔ индекс' : 'индекс ↔ рабочая копия'}</span>
+      <div className="diff-actions">
+        {file && (
+          <button onClick={() => scm.openChangedFile(file)} title="Открыть файл">
+            <IconGoToFile size={14} />
+            Открыть
+          </button>
+        )}
+        {file &&
+          (tab.diff.staged ? (
+            <button onClick={() => scm.unstage([file.path])} title="Убрать из индекса">
+              <IconMinus size={14} />
+              Из индекса
+            </button>
+          ) : (
+            <button onClick={() => scm.stage([file.path])} title="Индексировать">
+              <IconPlus size={14} />
+              В индекс
+            </button>
+          ))}
+        <button onClick={() => setInline(ed.toggleDiffInline())} title="Рядом / в одну колонку">
+          <IconColumns size={14} />
+          {inline ? 'В колонку' : 'Рядом'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -171,18 +209,27 @@ function Welcome() {
 
 export function EditorArea() {
   const hostRef = useRef<HTMLDivElement>(null)
+  const diffRef = useRef<HTMLDivElement>(null)
   const hasTabs = useStore((s) => s.tabs.length > 0)
+  const activeTab = useStore((s) => s.tabs.find((t) => t.path === s.active))
 
   useEffect(() => {
     if (!hostRef.current) return
     return ed.mountEditor(hostRef.current)
   }, [])
+  useEffect(() => {
+    if (!diffRef.current) return
+    return ed.mountDiffEditor(diffRef.current)
+  }, [])
+
+  const diffTab = activeTab?.diff ? (activeTab as Tab & { diff: NonNullable<Tab['diff']> }) : null
 
   return (
     <div className="editor-area glass-editor">
       {hasTabs && <Tabs />}
-      {hasTabs && <Breadcrumbs />}
-      <div className="editor-host" ref={hostRef} style={{ display: hasTabs ? 'block' : 'none' }} />
+      {hasTabs && (diffTab ? <DiffBar tab={diffTab} /> : <Breadcrumbs />)}
+      <div className="editor-host" ref={hostRef} style={{ display: hasTabs && !diffTab ? 'block' : 'none' }} />
+      <div className="editor-host" ref={diffRef} style={{ display: diffTab ? 'block' : 'none' }} />
       {!hasTabs && <Welcome />}
     </div>
   )

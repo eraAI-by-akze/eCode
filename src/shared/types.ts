@@ -70,6 +70,47 @@ export const DEFAULT_SETTINGS: Settings = {
   activeFile: null
 }
 
+export interface TermInfo {
+  id: number
+  cwd: string
+  shell: string
+  /** false when node-pty is unavailable and a plain pipe shell is used. */
+  pty: boolean
+}
+
+export type LspServerId = 'typescript' | 'python'
+
+export interface GitFile {
+  /** Absolute path. */
+  path: string
+  /** Path relative to the repository root, forward slashes. */
+  rel: string
+  /** Index status (porcelain X). */
+  x: string
+  /** Working tree status (porcelain Y). */
+  y: string
+  orig?: string
+}
+
+export interface GitStatus {
+  repoRoot: string
+  branch: string | null
+  detached: boolean
+  upstream: string | null
+  ahead: number
+  behind: number
+  hasHead: boolean
+  files: GitFile[]
+}
+
+export interface GitBranches {
+  current: string | null
+  local: string[]
+  remote: string[]
+}
+
+export type GitSyncOp = 'push' | 'pull' | 'fetch'
+
 export interface ContextMenuItem {
   id?: string
   label?: string
@@ -109,14 +150,32 @@ export interface EcodeApi {
   search(root: string, query: string, opts: SearchOptions): Promise<SearchResult>
   watch(root: string | null): void
   onFsChange(cb: (paths: string[]) => void): () => void
-  gitBranch(root: string): Promise<string | null>
   getPathForFile(file: File): string
   // terminal
-  termCreate(cwd: string | null): Promise<{ id: number; cwd: string; shell: string }>
+  termCreate(cwd: string | null, cols: number, rows: number): Promise<TermInfo>
   termWrite(id: number, data: string): void
+  termResize(id: number, cols: number, rows: number): void
   termKill(id: number): void
   onTermData(cb: (id: number, data: string) => void): () => void
   onTermExit(cb: (id: number, code: number | null) => void): () => void
+  // language servers
+  lspStart(server: LspServerId, root: string): Promise<{ capabilities: Record<string, unknown> }>
+  lspRequest(server: LspServerId, method: string, params: unknown): Promise<unknown>
+  lspNotify(server: LspServerId, method: string, params: unknown): void
+  lspStopAll(): Promise<void>
+  onLspNotification(cb: (server: LspServerId, method: string, params: unknown) => void): () => void
+  onLspExit(cb: (server: LspServerId, code: number | null) => void): () => void
+  // git
+  gitStatus(root: string): Promise<GitStatus | null>
+  gitInit(root: string): Promise<void>
+  gitStage(repo: string, paths: string[]): Promise<void>
+  gitUnstage(repo: string, paths: string[]): Promise<void>
+  gitDiscard(repo: string, tracked: string[], untracked: string[]): Promise<void>
+  gitCommit(repo: string, message: string, all: boolean): Promise<void>
+  gitDiffContents(repo: string, path: string, staged: boolean): Promise<{ original: string; modified: string }>
+  gitBranches(repo: string): Promise<GitBranches>
+  gitCheckout(repo: string, ref: string, create: boolean): Promise<void>
+  gitSync(repo: string, op: GitSyncOp): Promise<string>
   // settings
   loadSettings(): Promise<Settings>
   saveSettings(patch: Partial<Settings>): void

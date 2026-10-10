@@ -9,6 +9,67 @@ export interface AppTheme {
   /** Applied to :root as CSS custom properties. */
   vars: Record<string, string>
   monaco: editor.IStandaloneThemeData
+  terminal: TerminalColors
+}
+
+export interface TerminalColors {
+  foreground: string
+  cursor: string
+  selectionBackground: string
+  black: string
+  red: string
+  green: string
+  yellow: string
+  blue: string
+  magenta: string
+  cyan: string
+  white: string
+  brightBlack: string
+  brightRed: string
+  brightGreen: string
+  brightYellow: string
+  brightBlue: string
+  brightMagenta: string
+  brightCyan: string
+  brightWhite: string
+}
+
+const DARK_ANSI = {
+  black: '#1e1b2e',
+  red: '#ff6b8b',
+  green: '#4ade80',
+  yellow: '#fbbf24',
+  blue: '#60a5fa',
+  magenta: '#c084fc',
+  cyan: '#22d3ee',
+  white: '#d4d2e3',
+  brightBlack: '#6b6789',
+  brightRed: '#ff8fa8',
+  brightGreen: '#86efac',
+  brightYellow: '#fcd34d',
+  brightBlue: '#93c5fd',
+  brightMagenta: '#d8b4fe',
+  brightCyan: '#67e8f9',
+  brightWhite: '#ffffff'
+}
+
+const LIGHT_ANSI = {
+  black: '#1e1b33',
+  red: '#e11d48',
+  green: '#059669',
+  yellow: '#b45309',
+  blue: '#2563eb',
+  magenta: '#9333ea',
+  cyan: '#0891b2',
+  white: '#a8a5bd',
+  brightBlack: '#666184',
+  brightRed: '#f43f5e',
+  brightGreen: '#10b981',
+  brightYellow: '#d97706',
+  brightBlue: '#3b82f6',
+  brightMagenta: '#a855f7',
+  brightCyan: '#06b6d4',
+  brightWhite: '#1e1b33'
 }
 
 const darkRules = (p: {
@@ -61,6 +122,7 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     name: 'Era Glass',
     tagline: 'Тёмное стекло, фиолетово-бирюзовое свечение eraAI',
     dark: true,
+    terminal: { ...DARK_ANSI, foreground: '#e9e7f5', cursor: '#22d3ee', selectionBackground: '#8b5cf655' },
     vars: {
       '--bg': '#0b0a12',
       '--bg-glow-1': 'rgba(124, 92, 255, 0.28)',
@@ -104,6 +166,11 @@ export const THEMES: Record<ThemeId, AppTheme> = {
       }),
       colors: {
         focusBorder: '#00000000',
+        'diffEditor.insertedLineBackground': '#34d39914',
+        'diffEditor.insertedTextBackground': '#34d39933',
+        'diffEditor.removedLineBackground': '#ff6b8b14',
+        'diffEditor.removedTextBackground': '#ff6b8b33',
+        'diffEditor.diagonalFill': '#00000000',
         'editor.background': '#00000000',
         'editor.foreground': '#e9e7f5',
         'editorLineNumber.foreground': '#4b4766',
@@ -142,6 +209,14 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     name: 'Graphite',
     tagline: 'Матовый графит, тёплый янтарь, ноль отвлечений',
     dark: true,
+    terminal: {
+      ...DARK_ANSI,
+      black: '#1d1d1d',
+      yellow: '#f5a524',
+      foreground: '#e7e5e4',
+      cursor: '#f5a524',
+      selectionBackground: '#f5a52440'
+    },
     vars: {
       '--bg': '#121212',
       '--bg-glow-1': 'rgba(245, 165, 36, 0.06)',
@@ -185,6 +260,11 @@ export const THEMES: Record<ThemeId, AppTheme> = {
       }),
       colors: {
         focusBorder: '#00000000',
+        'diffEditor.insertedLineBackground': '#86efac12',
+        'diffEditor.insertedTextBackground': '#86efac2e',
+        'diffEditor.removedLineBackground': '#f8717112',
+        'diffEditor.removedTextBackground': '#f871712e',
+        'diffEditor.diagonalFill': '#00000000',
         'editor.background': '#141414',
         'editor.foreground': '#e7e5e4',
         'editorLineNumber.foreground': '#454340',
@@ -222,6 +302,7 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     name: 'Aurora Light',
     tagline: 'Светлое матовое стекло с мягким северным сиянием',
     dark: false,
+    terminal: { ...LIGHT_ANSI, foreground: '#1e1b33', cursor: '#6d5dfc', selectionBackground: '#6d5dfc33' },
     vars: {
       '--bg': '#f4f3fa',
       '--bg-glow-1': 'rgba(129, 140, 248, 0.30)',
@@ -275,6 +356,11 @@ export const THEMES: Record<ThemeId, AppTheme> = {
       ],
       colors: {
         focusBorder: '#00000000',
+        'diffEditor.insertedLineBackground': '#05966914',
+        'diffEditor.insertedTextBackground': '#0596692e',
+        'diffEditor.removedLineBackground': '#e11d4812',
+        'diffEditor.removedTextBackground': '#e11d482b',
+        'diffEditor.diagonalFill': '#00000000',
         'editor.background': '#00000000',
         'editor.foreground': '#1e1b33',
         'editorLineNumber.foreground': '#c0bdd6',

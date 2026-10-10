@@ -6,7 +6,7 @@ import { TitleBar } from './components/TitleBar'
 import { ActivityBar } from './components/ActivityBar'
 import { Sidebar } from './components/Sidebar'
 import { EditorArea } from './components/EditorArea'
-import { TerminalPanel } from './components/TerminalPanel'
+import { Panel } from './components/Panel'
 import { StatusBar } from './components/StatusBar'
 import { CommandPalette } from './components/CommandPalette'
 
@@ -91,6 +91,8 @@ export function App() {
     const onKey = (e: KeyboardEvent): void => {
       const cmd = commandForEvent(e)
       if (!cmd || (cmd.when && !cmd.when())) return
+      // Inside the terminal, keys belong to the shell unless the command is global.
+      if (!cmd.global && (document.activeElement as HTMLElement | null)?.closest('.xterm')) return
       e.preventDefault()
       e.stopPropagation()
       cmd.run()
@@ -163,7 +165,7 @@ export function App() {
                 }}
               />
               <div className="panel-wrap" style={{ height: panelHeight }}>
-                <TerminalPanel />
+                <Panel />
               </div>
             </div>
           )}

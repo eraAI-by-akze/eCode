@@ -200,16 +200,6 @@ async function search(root: string, query: string, opts: SearchOptions): Promise
   return result
 }
 
-async function gitBranch(root: string): Promise<string | null> {
-  try {
-    const head = (await fsp.readFile(join(root, '.git', 'HEAD'), 'utf8')).trim()
-    const m = /^ref: refs\/heads\/(.+)$/.exec(head)
-    return m ? m[1] : head.slice(0, 7)
-  } catch {
-    return null
-  }
-}
-
 let watcher: FSWatcher | null = null
 let pending = new Set<string>()
 let flushTimer: NodeJS.Timeout | null = null
@@ -291,6 +281,5 @@ export function registerFsHandlers(getWindow: () => BrowserWindow | null): void 
   ipcMain.handle('fs:search', (_e, root: string, query: string, opts: SearchOptions) =>
     search(root, query, opts)
   )
-  ipcMain.handle('fs:gitBranch', (_e, root: string) => gitBranch(root))
   ipcMain.on('fs:watch', (_e, root: string | null) => startWatching(root, getWindow))
 }
