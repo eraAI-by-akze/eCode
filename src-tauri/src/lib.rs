@@ -33,7 +33,9 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 // Native traffic lights over our own title bar.
-                win = win.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+                win = win
+                    .title_bar_style(tauri::TitleBarStyle::Overlay)
+                    .hidden_title(true);
             }
             #[cfg(not(target_os = "macos"))]
             {

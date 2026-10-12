@@ -87,6 +87,21 @@ pnpm tauri:dev      # режим разработки
 pnpm tauri:build    # установщики в src-tauri/target/release/bundle/
 ```
 
+## Сборка в GitHub Actions
+
+`.github/workflows/build.yml` запускается на каждый push в `main` и `claude/**`, на pull request и вручную (Run workflow).
+
+| Job | Что делает |
+| --- | --- |
+| **check** | проверка типов, сборка интерфейса для обеих версий, `cargo fmt --check`, `clippy -D warnings` |
+| **Tauri** · Linux / Windows / macOS | `.deb`, `.rpm`, `.AppImage` · `.msi`, `.exe` (NSIS) · universal `.dmg` (Intel + Apple Silicon) |
+| **Electron** · Linux / Windows / macOS | `.AppImage`, `.deb` · `.exe` (NSIS) · `.dmg`, `.zip` |
+| **release** | только для тегов `v*`: прикладывает все установщики к черновику релиза |
+
+Установщики лежат на странице прогона, в разделе **Artifacts**. Чтобы выпустить версию, поставьте тег: `git tag v0.1.0 && git push origin v0.1.0`. Появится черновик релиза со всеми файлами, его останется опубликовать.
+
+Сборки **не подписаны**: macOS при первом запуске попросит открыть приложение через контекстное меню («Открыть»), Windows SmartScreen покажет предупреждение. Для подписи понадобятся сертификаты Apple Developer и Windows code signing.
+
 ## Запуск
 
 ```bash

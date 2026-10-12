@@ -14,7 +14,10 @@ pub struct SettingsState {
 }
 
 fn file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|d| d.join("settings.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join("settings.json"))
 }
 
 fn load(app: &AppHandle) -> Map<String, Value> {
@@ -42,6 +45,9 @@ pub fn settings_save(app: AppHandle, state: State<'_, SettingsState>, patch: Map
             let _ = fs::create_dir_all(dir);
         }
         // Settings are a convenience; never fail the app over them.
-        let _ = fs::write(f, serde_json::to_string_pretty(&Value::Object(map.clone())).unwrap_or_default());
+        let _ = fs::write(
+            f,
+            serde_json::to_string_pretty(&Value::Object(map.clone())).unwrap_or_default(),
+        );
     }
 }

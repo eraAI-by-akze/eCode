@@ -19,8 +19,23 @@ use crate::util::{err, to_string_lossy, CmdResult};
 
 const HIDDEN: &[&str] = &[".git", ".DS_Store", "Thumbs.db"];
 const HEAVY_DIRS: &[&str] = &[
-    ".git", "node_modules", ".next", ".nuxt", "dist", "out", "build", ".cache", ".turbo", "coverage",
-    "__pycache__", ".venv", "venv", ".mypy_cache", ".pytest_cache", ".idea", "target",
+    ".git",
+    "node_modules",
+    ".next",
+    ".nuxt",
+    "dist",
+    "out",
+    "build",
+    ".cache",
+    ".turbo",
+    "coverage",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".idea",
+    "target",
 ];
 const MAX_OPEN_SIZE: u64 = 50 * 1024 * 1024;
 const MAX_SEARCH_FILE_SIZE: u64 = 2 * 1024 * 1024;
@@ -154,10 +169,18 @@ pub fn read_dir(dir: String) -> CmdResult<Vec<DirEntry>> {
             }
             // Follow symlinks for the folder check, like the Electron version.
             let is_dir = fs::metadata(d.path()).map(|m| m.is_dir()).unwrap_or(false);
-            Some(DirEntry { name, path: to_string_lossy(&d.path()), is_dir })
+            Some(DirEntry {
+                name,
+                path: to_string_lossy(&d.path()),
+                is_dir,
+            })
         })
         .collect();
-    entries.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then_with(|| natural_cmp(&a.name, &b.name)));
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| natural_cmp(&a.name, &b.name))
+    });
     Ok(entries)
 }
 
@@ -165,15 +188,32 @@ pub fn read_dir(dir: String) -> CmdResult<Vec<DirEntry>> {
 pub fn read_file(path: String) -> ReadFileResult {
     let meta = match fs::metadata(&path) {
         Ok(m) => m,
-        Err(e) => return ReadFileResult { error: Some(e.to_string()), ..Default::default() },
+        Err(e) => {
+            return ReadFileResult {
+                error: Some(e.to_string()),
+                ..Default::default()
+            }
+        }
     };
     if meta.len() > MAX_OPEN_SIZE {
-        return ReadFileResult { too_large: Some(true), ..Default::default() };
+        return ReadFileResult {
+            too_large: Some(true),
+            ..Default::default()
+        };
     }
     match fs::read(&path) {
-        Ok(buf) if is_binary(&buf) => ReadFileResult { binary: Some(true), ..Default::default() },
-        Ok(buf) => ReadFileResult { content: Some(String::from_utf8_lossy(&buf).into_owned()), ..Default::default() },
-        Err(e) => ReadFileResult { error: Some(e.to_string()), ..Default::default() },
+        Ok(buf) if is_binary(&buf) => ReadFileResult {
+            binary: Some(true),
+            ..Default::default()
+        },
+        Ok(buf) => ReadFileResult {
+            content: Some(String::from_utf8_lossy(&buf).into_owned()),
+            ..Default::default()
+        },
+        Err(e) => ReadFileResult {
+            error: Some(e.to_string()),
+            ..Default::default()
+        },
     }
 }
 
@@ -184,14 +224,20 @@ pub fn write_file(path: String, content: String) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn stat(path: String) -> Option<StatResult> {
-    fs::metadata(path).ok().map(|m| StatResult { is_dir: m.is_dir() })
+    fs::metadata(path)
+        .ok()
+        .map(|m| StatResult { is_dir: m.is_dir() })
 }
 
 #[tauri::command]
 pub fn create_file(dir: String, name: String) -> CmdResult<String> {
     check_name(&name)?;
     let p = Path::new(&dir).join(&name);
-    fs::OpenOptions::new().write(true).create_new(true).open(&p).map_err(err)?;
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&p)
+        .map_err(err)?;
     Ok(to_string_lossy(&p))
 }
 
@@ -207,7 +253,10 @@ pub fn create_dir(dir: String, name: String) -> CmdResult<String> {
 pub fn rename(path: String, new_name: String) -> CmdResult<String> {
     check_name(&new_name)?;
     let from = PathBuf::from(&path);
-    let target = from.parent().map(|p| p.join(&new_name)).ok_or("Нет родительской папки")?;
+    let target = from
+        .parent()
+        .map(|p| p.join(&new_name))
+        .ok_or("Нет родительской папки")?;
     if target != from {
         // A case-only rename ("a.ts" → "A.ts") is fine on case-insensitive disks.
         if target.exists() && to_string_lossy(&target).to_lowercase() != path.to_lowercase() {
@@ -270,7 +319,12 @@ pub async fn list_files(root: String) -> Vec<String> {
 
 fn rel_slash(root: &Path, p: &Path) -> String {
     p.strip_prefix(root)
-        .map(|r| r.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/"))
+        .map(|r| {
+            r.components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/")
+        })
         .unwrap_or_else(|_| to_string_lossy(p))
 }
 
@@ -278,7 +332,11 @@ type Matcher = Box<dyn Fn(&str) -> bool + Send>;
 
 /// "*.ts, src/**" → matcher over the root-relative, slash-separated path.
 fn include_filter(include: &str) -> Option<Vec<Matcher>> {
-    let parts: Vec<&str> = include.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    let parts: Vec<&str> = include
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
     if parts.is_empty() {
         return None;
     }
@@ -303,7 +361,11 @@ fn include_filter(include: &str) -> Option<Vec<Matcher>> {
             .join(".*");
         if let Ok(re) = regex::Regex::new(&format!("^{src}$")) {
             out.push(Box::new(move |rel: &str| {
-                let target = if has_slash { rel } else { rel.rsplit('/').next().unwrap_or(rel) };
+                let target = if has_slash {
+                    rel
+                } else {
+                    rel.rsplit('/').next().unwrap_or(rel)
+                };
                 re.is_match(target)
             }));
         }
@@ -316,19 +378,36 @@ fn utf16_len(s: &str) -> usize {
 }
 
 #[tauri::command]
-pub async fn search(state: State<'_, FsState>, root: String, query: String, opts: SearchOptions) -> CmdResult<SearchResult> {
+pub async fn search(
+    state: State<'_, FsState>,
+    root: String,
+    query: String,
+    opts: SearchOptions,
+) -> CmdResult<SearchResult> {
     let generation = state.search_generation.fetch_add(1, Ordering::SeqCst) + 1;
     let gen_ref = Arc::clone(&state.search_generation);
     if query.is_empty() {
         return Ok(SearchResult::default());
     }
-    let mut src = if opts.regex { query.clone() } else { regex::escape(&query) };
+    let mut src = if opts.regex {
+        query.clone()
+    } else {
+        regex::escape(&query)
+    };
     if opts.whole_word {
         src = format!(r"\b(?:{src})\b");
     }
-    let re = match RegexBuilder::new(&src).case_insensitive(!opts.case_sensitive).build() {
+    let re = match RegexBuilder::new(&src)
+        .case_insensitive(!opts.case_sensitive)
+        .build()
+    {
         Ok(r) => r,
-        Err(e) => return Ok(SearchResult { error: Some(e.to_string()), ..Default::default() }),
+        Err(e) => {
+            return Ok(SearchResult {
+                error: Some(e.to_string()),
+                ..Default::default()
+            })
+        }
     };
     let include = include_filter(&opts.include);
 
@@ -345,12 +424,18 @@ pub async fn search(state: State<'_, FsState>, root: String, query: String, opts
                     return true;
                 }
             }
-            let Ok(meta) = fs::metadata(file) else { return true };
+            let Ok(meta) = fs::metadata(file) else {
+                return true;
+            };
             if meta.len() > MAX_SEARCH_FILE_SIZE {
                 return true;
             }
             let mut buf = Vec::with_capacity(meta.len() as usize);
-            if fs::File::open(file).and_then(|mut f| f.read_to_end(&mut buf)).is_err() || is_binary(&buf) {
+            if fs::File::open(file)
+                .and_then(|mut f| f.read_to_end(&mut buf))
+                .is_err()
+                || is_binary(&buf)
+            {
                 return true;
             }
             let text = String::from_utf8_lossy(&buf);
@@ -384,7 +469,10 @@ pub async fn search(state: State<'_, FsState>, root: String, query: String, opts
                 }
             }
             if !matches.is_empty() {
-                result.files.push(SearchFileResult { path: to_string_lossy(file), matches });
+                result.files.push(SearchFileResult {
+                    path: to_string_lossy(file),
+                    matches,
+                });
             }
             !result.truncated
         });
@@ -409,7 +497,9 @@ pub fn watch(app: AppHandle, state: State<'_, FsState>, root: Option<String>) ->
         }
     })
     .map_err(err)?;
-    watcher.watch(&root_path, RecursiveMode::Recursive).map_err(err)?;
+    watcher
+        .watch(&root_path, RecursiveMode::Recursive)
+        .map_err(err)?;
     *slot = Some(watcher);
 
     // Debounce bursts (git checkout, npm install) into one event every 150 ms.
@@ -422,8 +512,13 @@ pub fn watch(app: AppHandle, state: State<'_, FsState>, root: Option<String>) ->
             let paths: Vec<String> = batch
                 .into_iter()
                 .filter(|p| {
-                    let first = p.strip_prefix(&root_path).ok().and_then(|r| r.components().next());
-                    let name = first.map(|c| c.as_os_str().to_string_lossy().into_owned()).unwrap_or_default();
+                    let first = p
+                        .strip_prefix(&root_path)
+                        .ok()
+                        .and_then(|r| r.components().next());
+                    let name = first
+                        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                        .unwrap_or_default();
                     !HEAVY_DIRS.contains(&name.as_str())
                 })
                 .map(|p| to_string_lossy(&p))

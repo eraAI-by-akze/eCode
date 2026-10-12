@@ -52,7 +52,11 @@ fn shell() -> (String, Vec<String>) {
         ("powershell.exe".into(), vec!["-NoLogo".into()])
     } else {
         let sh = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into());
-        let args = if cfg!(target_os = "macos") { vec!["-l".into()] } else { vec![] };
+        let args = if cfg!(target_os = "macos") {
+            vec!["-l".into()]
+        } else {
+            vec![]
+        };
         (sh, args)
     }
 }
@@ -81,14 +85,29 @@ fn take_utf8(buf: &mut Vec<u8>) -> String {
 }
 
 #[tauri::command]
-pub fn term_create(app: AppHandle, state: State<'_, TermState>, cwd: Option<String>, cols: u16, rows: u16) -> CmdResult<TermInfo> {
+pub fn term_create(
+    app: AppHandle,
+    state: State<'_, TermState>,
+    cwd: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> CmdResult<TermInfo> {
     let dir = cwd
         .filter(|c| std::path::Path::new(c).is_dir())
-        .or_else(|| std::env::var("HOME").ok().or_else(|| std::env::var("USERPROFILE").ok()))
+        .or_else(|| {
+            std::env::var("HOME")
+                .ok()
+                .or_else(|| std::env::var("USERPROFILE").ok())
+        })
         .unwrap_or_else(|| ".".into());
     let (program, args) = shell();
     let pair = native_pty_system()
-        .openpty(PtySize { rows: rows.max(1), cols: cols.max(2), pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize {
+            rows: rows.max(1),
+            cols: cols.max(2),
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(err)?;
     let mut cmd = CommandBuilder::new(&program);
     cmd.args(&args);
@@ -127,12 +146,20 @@ pub fn term_create(app: AppHandle, state: State<'_, TermState>, cwd: Option<Stri
         let _ = exit_app.emit("term:exit", TermExit { id, code });
     });
 
-    state
-        .sessions
-        .lock()
-        .map_err(err)?
-        .insert(id, Session { master: pair.master, writer, killer });
-    Ok(TermInfo { id, cwd: dir, shell: program, pty: true })
+    state.sessions.lock().map_err(err)?.insert(
+        id,
+        Session {
+            master: pair.master,
+            writer,
+            killer,
+        },
+    );
+    Ok(TermInfo {
+        id,
+        cwd: dir,
+        shell: program,
+        pty: true,
+    })
 }
 
 #[tauri::command]
@@ -149,7 +176,12 @@ pub fn term_write(state: State<'_, TermState>, id: u32, data: String) {
 pub fn term_resize(state: State<'_, TermState>, id: u32, cols: u16, rows: u16) {
     if let Ok(map) = state.sessions.lock() {
         if let Some(s) = map.get(&id) {
-            let _ = s.master.resize(PtySize { rows: rows.max(1), cols: cols.max(2), pixel_width: 0, pixel_height: 0 });
+            let _ = s.master.resize(PtySize {
+                rows: rows.max(1),
+                cols: cols.max(2),
+                pixel_width: 0,
+                pixel_height: 0,
+            });
         }
     }
 }

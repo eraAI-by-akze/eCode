@@ -26,7 +26,11 @@ fn run(cwd: &Path, args: &[&str], allow_fail: bool) -> CmdResult<Output> {
         stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
     };
     if !out.status.success() && !allow_fail {
-        let msg = if o.stderr.trim().is_empty() { format!("git {} failed", args[0]) } else { o.stderr.clone() };
+        let msg = if o.stderr.trim().is_empty() {
+            format!("git {} failed", args[0])
+        } else {
+            o.stderr.clone()
+        };
         let tail: Vec<&str> = msg.trim().lines().collect();
         return Err(tail[tail.len().saturating_sub(6)..].join("\n"));
     }
@@ -36,14 +40,21 @@ fn run(cwd: &Path, args: &[&str], allow_fail: bool) -> CmdResult<Output> {
 fn rel(repo: &Path, p: &str) -> String {
     Path::new(p)
         .strip_prefix(repo)
-        .map(|r| r.components().map(|c| c.as_os_str().to_string_lossy()).collect::<Vec<_>>().join("/"))
+        .map(|r| {
+            r.components()
+                .map(|c| c.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/")
+        })
         .unwrap_or_else(|_| p.replace('\\', "/"))
 }
 
 fn repo_root(cwd: &Path) -> Option<PathBuf> {
     let o = run(cwd, &["rev-parse", "--show-toplevel"], false).ok()?;
     // git prints forward slashes; normalise for Windows.
-    Some(PathBuf::from(o.stdout.trim().replace('/', std::path::MAIN_SEPARATOR_STR)))
+    Some(PathBuf::from(
+        o.stdout.trim().replace('/', std::path::MAIN_SEPARATOR_STR),
+    ))
 }
 
 fn has_head(repo: &Path) -> bool {
@@ -106,7 +117,19 @@ fn parse_branch_line(line: &str, st: &mut GitStatus) {
 pub async fn git_status(root: String) -> Option<GitStatus> {
     tauri::async_runtime::spawn_blocking(move || {
         let repo = repo_root(Path::new(&root))?;
-        let out = run(&repo, &["status", "--porcelain=v1", "-z", "-b", "-uall", "--no-renames"], false).ok()?;
+        let out = run(
+            &repo,
+            &[
+                "status",
+                "--porcelain=v1",
+                "-z",
+                "-b",
+                "-uall",
+                "--no-renames",
+            ],
+            false,
+        )
+        .ok()?;
         let mut st = GitStatus {
             repo_root: to_string_lossy(&repo),
             branch: None,
@@ -134,7 +157,9 @@ pub async fn git_status(root: String) -> Option<GitStatus> {
             });
         }
         if st.detached {
-            st.branch = run(&repo, &["rev-parse", "--short", "HEAD"], true).ok().map(|o| o.stdout.trim().to_string());
+            st.branch = run(&repo, &["rev-parse", "--short", "HEAD"], true)
+                .ok()
+                .map(|o| o.stdout.trim().to_string());
         }
         Some(st)
     })
@@ -143,7 +168,9 @@ pub async fn git_status(root: String) -> Option<GitStatus> {
     .flatten()
 }
 
-async fn blocking<T: Send + 'static>(f: impl FnOnce() -> CmdResult<T> + Send + 'static) -> CmdResult<T> {
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> CmdResult<T> + Send + 'static,
+) -> CmdResult<T> {
     tauri::async_runtime::spawn_blocking(f).await.map_err(err)?
 }
 
@@ -169,7 +196,11 @@ pub async fn git_unstage(repo: String, paths: Vec<String>) -> CmdResult<()> {
     blocking(move || {
         let r = Path::new(&repo);
         let rels: Vec<String> = paths.iter().map(|p| rel(r, p)).collect();
-        let mut args: Vec<&str> = if has_head(r) { vec!["reset", "-q", "HEAD", "--"] } else { vec!["rm", "--cached", "-r", "-q", "--"] };
+        let mut args: Vec<&str> = if has_head(r) {
+            vec!["reset", "-q", "HEAD", "--"]
+        } else {
+            vec!["rm", "--cached", "-r", "-q", "--"]
+        };
         args.extend(rels.iter().map(String::as_str));
         run(r, &args, false).map(|_| ())
     })
@@ -177,7 +208,11 @@ pub async fn git_unstage(repo: String, paths: Vec<String>) -> CmdResult<()> {
 }
 
 #[tauri::command]
-pub async fn git_discard(repo: String, tracked: Vec<String>, untracked: Vec<String>) -> CmdResult<()> {
+pub async fn git_discard(
+    repo: String,
+    tracked: Vec<String>,
+    untracked: Vec<String>,
+) -> CmdResult<()> {
     blocking(move || {
         let r = Path::new(&repo);
         if !tracked.is_empty() {
@@ -189,7 +224,11 @@ pub async fn git_discard(repo: String, tracked: Vec<String>, untracked: Vec<Stri
         for p in untracked {
             if trash::delete(&p).is_err() {
                 let path = Path::new(&p);
-                let _ = if path.is_dir() { std::fs::remove_dir_all(path) } else { std::fs::remove_file(path) };
+                let _ = if path.is_dir() {
+                    std::fs::remove_dir_all(path)
+                } else {
+                    std::fs::remove_file(path)
+                };
             }
         }
         Ok(())
@@ -216,18 +255,30 @@ pub struct DiffContents {
 }
 
 fn show(repo: &Path, spec: &str) -> String {
-    run(repo, &["show", spec], false).map(|o| o.stdout).unwrap_or_default()
+    run(repo, &["show", spec], false)
+        .map(|o| o.stdout)
+        .unwrap_or_default()
 }
 
 #[tauri::command]
-pub async fn git_diff_contents(repo: String, path: String, staged: bool) -> CmdResult<DiffContents> {
+pub async fn git_diff_contents(
+    repo: String,
+    path: String,
+    staged: bool,
+) -> CmdResult<DiffContents> {
     blocking(move || {
         let r = Path::new(&repo);
         let rp = rel(r, &path);
         Ok(if staged {
-            DiffContents { original: show(r, &format!("HEAD:{rp}")), modified: show(r, &format!(":{rp}")) }
+            DiffContents {
+                original: show(r, &format!("HEAD:{rp}")),
+                modified: show(r, &format!(":{rp}")),
+            }
         } else {
-            DiffContents { original: show(r, &format!(":{rp}")), modified: std::fs::read_to_string(&path).unwrap_or_default() }
+            DiffContents {
+                original: show(r, &format!(":{rp}")),
+                modified: std::fs::read_to_string(&path).unwrap_or_default(),
+            }
         })
     })
     .await
@@ -241,20 +292,44 @@ pub struct GitBranches {
 }
 
 fn lines(s: &str) -> Vec<String> {
-    s.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect()
+    s.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(String::from)
+        .collect()
 }
 
 #[tauri::command]
 pub async fn git_branches(repo: String) -> CmdResult<GitBranches> {
     blocking(move || {
         let r = Path::new(&repo);
-        let local = run(r, &["for-each-ref", "--format=%(refname:short)", "refs/heads"], true)?.stdout;
-        let remote = run(r, &["for-each-ref", "--format=%(refname:short)", "refs/remotes"], true)?.stdout;
-        let current = run(r, &["branch", "--show-current"], true)?.stdout.trim().to_string();
+        let local = run(
+            r,
+            &["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+            true,
+        )?
+        .stdout;
+        let remote = run(
+            r,
+            &["for-each-ref", "--format=%(refname:short)", "refs/remotes"],
+            true,
+        )?
+        .stdout;
+        let current = run(r, &["branch", "--show-current"], true)?
+            .stdout
+            .trim()
+            .to_string();
         Ok(GitBranches {
-            current: if current.is_empty() { None } else { Some(current) },
+            current: if current.is_empty() {
+                None
+            } else {
+                Some(current)
+            },
             local: lines(&local),
-            remote: lines(&remote).into_iter().filter(|b| !b.ends_with("/HEAD")).collect(),
+            remote: lines(&remote)
+                .into_iter()
+                .filter(|b| !b.ends_with("/HEAD"))
+                .collect(),
         })
     })
     .await
@@ -268,14 +343,42 @@ pub async fn git_checkout(repo: String, r#ref: String, create: bool) -> CmdResul
             return run(r, &["checkout", "-b", &r#ref], false).map(|_| ());
         }
         // "origin/feature" → local tracking branch "feature".
-        let is_remote = !run(r, &["for-each-ref", "--format=%(refname:short)", &format!("refs/remotes/{}", r#ref)], true)?
+        let is_remote = !run(
+            r,
+            &[
+                "for-each-ref",
+                "--format=%(refname:short)",
+                &format!("refs/remotes/{}", r#ref),
+            ],
+            true,
+        )?
+        .stdout
+        .trim()
+        .is_empty();
+        if is_remote {
+            let local = r#ref
+                .split_once('/')
+                .map(|(_, b)| b)
+                .unwrap_or(&r#ref)
+                .to_string();
+            let exists = !run(
+                r,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    &format!("refs/heads/{local}"),
+                ],
+                true,
+            )?
             .stdout
             .trim()
             .is_empty();
-        if is_remote {
-            let local = r#ref.split_once('/').map(|(_, b)| b).unwrap_or(&r#ref).to_string();
-            let exists = !run(r, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{local}")], true)?.stdout.trim().is_empty();
-            let args: Vec<&str> = if exists { vec!["checkout", &local] } else { vec!["checkout", "--track", &r#ref] };
+            let args: Vec<&str> = if exists {
+                vec!["checkout", &local]
+            } else {
+                vec!["checkout", "--track", &r#ref]
+            };
             return run(r, &args, false).map(|_| ());
         }
         run(r, &["checkout", &r#ref], false).map(|_| ())
@@ -291,13 +394,17 @@ pub async fn git_sync(repo: String, op: String) -> CmdResult<String> {
             "fetch" => Ok(run(r, &["fetch", "--prune"], false)?.stderr),
             "pull" => Ok(run(r, &["pull", "--no-rebase"], false)?.stdout),
             _ => {
-                let up = run(r, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], true)?.stdout;
+                let up = run(
+                    r,
+                    &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+                    true,
+                )?
+                .stdout;
                 if up.trim().is_empty() {
                     let remotes = run(r, &["remote"], true)?.stdout;
-                    let remote = lines(&remotes)
-                        .into_iter()
-                        .next()
-                        .ok_or("У репозитория нет remote. Добавьте его: git remote add origin <url>")?;
+                    let remote = lines(&remotes).into_iter().next().ok_or(
+                        "У репозитория нет remote. Добавьте его: git remote add origin <url>",
+                    )?;
                     return Ok(run(r, &["push", "-u", &remote, "HEAD"], false)?.stderr);
                 }
                 Ok(run(r, &["push"], false)?.stderr)

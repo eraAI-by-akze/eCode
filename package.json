@@ -20,9 +20,6 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.3",
-    "@tauri-apps/plugin-dialog": "^2.8.2",
-    "@tauri-apps/plugin-opener": "^2.7.1",
     "electron-updater": "^6.1.0",
     "node-pty": "1.1.0",
     "pyright": "1.1.390",
@@ -30,7 +27,10 @@
     "typescript-language-server": "4.3.3"
   },
   "devDependencies": {
+    "@tauri-apps/api": "^2.12.3",
     "@tauri-apps/cli": "^2.12.2",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
+    "@tauri-apps/plugin-opener": "^2.7.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
@@ -47,7 +47,10 @@
     "vite": "^5.0.0",
     "zustand": "^4.5.0"
   },
-  "author": "eraAI",
+  "author": {
+    "name": "eraAI",
+    "email": "noreply@eraai.local"
+  },
   "build": {
     "appId": "com.eraai.ecode",
     "productName": "eCode",
@@ -63,7 +66,8 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "identity": null
     },
     "win": {
       "target": [
@@ -79,7 +83,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Development"
+      "category": "Development",
+      "maintainer": "eraAI <noreply@eraai.local>"
     },
     "asarUnpack": [
       "**/node_modules/node-pty/**",
@@ -92,7 +97,8 @@
         "from": "resources/era",
         "to": "era"
       }
-    ]
+    ],
+    "npmRebuild": false
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -100,5 +106,7 @@
       "esbuild",
       "node-pty"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.28.0",
+  "homepage": "https://github.com/eraAI-by-akze/eCode"
 }
