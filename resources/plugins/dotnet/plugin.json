@@ -1,0 +1,65 @@
+{
+  "id": "ecode.dotnet",
+  "name": "C# и .NET",
+  "version": "1.0.0",
+  "description": "Сборка, проверка, тесты и запуск .NET-проектов (dotnet CLI), языковой сервер C# (csharp-ls).",
+  "requires": [{ "command": "dotnet", "install": "https://dotnet.microsoft.com/download" }],
+  "languageServers": [
+    {
+      "id": "csharp",
+      "name": "C# (csharp-ls)",
+      "languages": ["csharp"],
+      "command": "csharp-ls",
+      "install": "dotnet tool install --global csharp-ls"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "dotnet.build",
+      "label": "dotnet build",
+      "group": "build",
+      "command": "dotnet build \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo -clp:NoSummary",
+      "problemMatcher": "msbuild",
+      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+    },
+    {
+      "id": "dotnet.check",
+      "label": "dotnet build — только ошибки",
+      "group": "check",
+      "command": "dotnet build \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo -v q -clp:NoSummary",
+      "problemMatcher": "msbuild",
+      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+    },
+    {
+      "id": "dotnet.test",
+      "label": "dotnet test",
+      "group": "test",
+      "command": "dotnet test \"${find:**/*.sln|**/*.csproj}\" -nologo",
+      "problemMatcher": "msbuild",
+      "when": { "files": ["**/*.sln", "**/*.csproj"] }
+    },
+    {
+      "id": "dotnet.run",
+      "label": "dotnet run",
+      "group": "run",
+      "command": "dotnet run --project \"${find:**/*.csproj|**/*.fsproj}\"",
+      "terminal": true,
+      "when": { "files": ["**/*.csproj", "**/*.fsproj"] }
+    },
+    {
+      "id": "dotnet.format",
+      "label": "dotnet format",
+      "group": "format",
+      "command": "dotnet format \"${find:**/*.sln|**/*.csproj}\"",
+      "when": { "files": ["**/*.sln", "**/*.csproj"] }
+    },
+    {
+      "id": "dotnet.clean",
+      "label": "dotnet clean",
+      "group": "clean",
+      "command": "dotnet clean \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo",
+      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+    }
+  ],
+  "runners": [{ "extensions": [".cs", ".fs"], "command": "dotnet run --project \"${find:**/*.csproj|**/*.fsproj}\"" }]
+}

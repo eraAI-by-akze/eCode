@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore, type Tab } from '../store'
 import * as scm from '../scm'
+import { useAllDiagnostics } from './Panel'
 import * as a from '../actions'
 import * as ed from '../editorService'
 import { basename, relative } from '../lib/path'
@@ -14,6 +15,7 @@ function Tabs() {
   const active = useStore((s) => s.active)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const diagnostics = useAllDiagnostics()
 
   // Scroll the active tab into view.
   useEffect(() => {
@@ -28,7 +30,13 @@ function Tabs() {
       {tabs.map((t, i) => (
         <div
           key={t.path}
-          className={`tab ${t.path === active ? 'active' : ''} ${t.dirty ? 'dirty' : ''}`}
+          className={`tab ${t.path === active ? 'active' : ''} ${t.dirty ? 'dirty' : ''} ${
+            diagnostics[t.path]?.some((d) => d.severity === 'error')
+              ? 'has-errors'
+              : diagnostics[t.path]?.some((d) => d.severity === 'warning')
+                ? 'has-warnings'
+                : ''
+          }`}
           title={t.path.replace(/^untitled:/, '')}
           draggable
           onDragStart={() => setDragIndex(i)}

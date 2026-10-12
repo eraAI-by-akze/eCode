@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { DEFAULT_SETTINGS, type DirEntry, type GitStatus, type LspServerId, type Settings } from '@shared/types'
+import { DEFAULT_SETTINGS, type DirEntry, type GitStatus, type LspServerId, type PluginEntry, type Settings } from '@shared/types'
 
-export type SidebarView = 'explorer' | 'search' | 'scm' | 'ai' | 'settings'
+export type SidebarView = 'explorer' | 'search' | 'scm' | 'ai' | 'plugins' | 'settings'
 
 export interface Tab {
   path: string
@@ -64,6 +64,25 @@ export interface AiStatus {
   pythonPath?: string
 }
 
+export interface TaskRunState {
+  /** Backend process id. */
+  pid: number
+  taskId: string
+  label: string
+  command: string
+  cwd: string
+  startedAt: number
+}
+
+export interface TaskResult {
+  taskId: string
+  label: string
+  code: number | null
+  errors: number
+  warnings: number
+  ms: number
+}
+
 export interface Toast {
   id: number
   message: string
@@ -102,10 +121,23 @@ export interface State {
   sidebar: SidebarView | null
   lastSidebar: SidebarView
   panelOpen: boolean
-  panelTab: 'terminal' | 'problems'
+  panelTab: 'terminal' | 'problems' | 'output'
   terminals: TerminalTab[]
   activeTerminal: number | null
+  /** From language servers. */
   diagnostics: Record<string, Diagnostic[]>
+  /** From build/check tasks (compiler output). */
+  taskDiagnostics: Record<string, Diagnostic[]>
+  plugins: PluginEntry[]
+  /** Resolved paths of CLI tools plugins need (null = not found). */
+  tools: Record<string, string | null>
+  task: TaskRunState | null
+  lastTask: TaskResult | null
+  taskOutput: string
+  /** Font family picked by "auto" (a Nerd Font when one is installed). */
+  autoFont: string | null
+  /** Folder whose children should animate in (just expanded). */
+  expandPulse: { dir: string; at: number } | null
   lsp: Partial<Record<LspServerId, LspStatus>>
   git: GitStatus | null
   gitBusy: string | null
@@ -140,6 +172,14 @@ export const useStore = create<State>(() => ({
   terminals: [],
   activeTerminal: null,
   diagnostics: {},
+  taskDiagnostics: {},
+  plugins: [],
+  tools: {},
+  task: null,
+  lastTask: null,
+  taskOutput: '',
+  autoFont: null,
+  expandPulse: null,
   lsp: {},
   git: null,
   gitBusy: null,
@@ -159,3 +199,22 @@ export const useStore = create<State>(() => ({
 
 export const getState = useStore.getState
 export const setState = useStore.setState
+
+/** LSP + task diagnostics for one view (Problems panel, explorer, status bar). */
+export function mergeDiagnostics(a: Record<string, Diagnostic[]>, b: Record<string, Diagnostic[]>): Record<string, Diagnostic[]> {
+  if (!Object.keys(b).length) return a
+  if (!Object.keys(a).length) return b
+  const out: Record<string, Diagnostic[]> = { ...a }
+  for (const [path, list] of Object.entries(b)) {
+    const live = out[path]
+    if (!live) {
+      out[path] = list
+      continue
+    }
+    // A compiler error the language server already reports (same spot, same code) shows once.
+    const key = (d: Diagnostic): string => `${d.line}:${d.column}:${d.severity}:${d.code ?? d.message}`
+    const seen = new Set(live.map(key))
+    out[path] = [...live, ...list.filter((d) => !seen.has(key(d)))]
+  }
+  return out
+}

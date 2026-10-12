@@ -36,3 +36,17 @@ export function isInside(parent: string, child: string): boolean {
 export function isUntitled(p: string): boolean {
   return p.startsWith('untitled:')
 }
+
+/** Join a base folder and a (possibly relative) path, resolving "." and "..". */
+export function resolvePath(base: string, p: string): string {
+  const win = window.ecode.platform === 'win32'
+  const isAbs = p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith('\\\\')
+  const parts = (isAbs ? p : `${base}/${p}`).split(/[\\/]+/)
+  const out: string[] = []
+  for (const part of parts) {
+    if (part === '.' || part === '') continue
+    if (part === '..') out.pop()
+    else out.push(part)
+  }
+  return win ? out.join('\\') : '/' + out.join('/')
+}

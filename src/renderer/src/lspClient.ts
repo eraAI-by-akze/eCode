@@ -3,6 +3,9 @@ import type { LspServerId } from '@shared/types'
 import { monaco } from './monaco'
 import { getState, setState, type Diagnostic, type LspStatus } from './store'
 import { dirname } from './lib/path'
+import { pluginServers } from './pluginService'
+import { toast } from './actions'
+import type { PluginLanguageServer } from '@shared/types'
 
 /**
  * Bridges Monaco to language servers running in the main process. Only the
@@ -16,16 +19,29 @@ const api = window.ecode
 type Model = monaco.editor.ITextModel
 type Caps = Record<string, any>
 
-const SERVER_FOR_LANGUAGE: Record<string, LspServerId> = {
+// Bundled servers; plugins add more (rust-analyzer, csharp-ls, …).
+const BUILTIN_FOR_LANGUAGE: Record<string, LspServerId> = {
   typescript: 'typescript',
   javascript: 'typescript',
   python: 'python'
 }
-const LANGUAGES_OF: Record<LspServerId, string[]> = {
+const BUILTIN_LANGUAGES: Record<string, string[]> = {
   typescript: ['typescript', 'javascript'],
   python: ['python']
 }
-export const SERVER_NAMES: Record<LspServerId, string> = { typescript: 'TypeScript', python: 'Pyright' }
+const BUILTIN_NAMES: Record<string, string> = { typescript: 'TypeScript', python: 'Pyright' }
+
+function pluginServer(id: LspServerId): PluginLanguageServer | undefined {
+  return pluginServers().find((s) => s.item.id === id)?.item
+}
+
+export function serverName(id: LspServerId): string {
+  return BUILTIN_NAMES[id] ?? pluginServer(id)?.name ?? id
+}
+
+function languagesOf(id: LspServerId): string[] {
+  return BUILTIN_LANGUAGES[id] ?? pluginServer(id)?.languages ?? []
+}
 
 interface Server {
   root: string
@@ -156,6 +172,8 @@ function rootFor(id: LspServerId, path: string): string | null {
   return servers.get(id)?.root ?? dirname(path)
 }
 
+const warned = new Set<LspServerId>()
+
 function ensureServer(id: LspServerId, path: string): Promise<boolean> {
   const root = rootFor(id, path)
   if (!root) return Promise.resolve(false)
@@ -163,8 +181,9 @@ function ensureServer(id: LspServerId, path: string): Promise<boolean> {
   if (existing && existing.root === root) return existing.ready
   const server: Server = { root, caps: {}, ready: Promise.resolve(false) }
   setStatus(id, { state: 'starting', message: 'запуск…' })
+  const plugin = BUILTIN_NAMES[id] ? undefined : pluginServer(id)
   server.ready = api
-    .lspStart(id, root)
+    .lspStart(id, root, plugin ? { command: plugin.command, args: plugin.args, initializationOptions: plugin.initializationOptions } : undefined)
     .then(({ capabilities }) => {
       if (servers.get(id) !== server) return false
       server.caps = capabilities
@@ -173,7 +192,14 @@ function ensureServer(id: LspServerId, path: string): Promise<boolean> {
       return true
     })
     .catch((err: Error) => {
-      if (servers.get(id) === server) setStatus(id, { state: 'error', message: cleanError(err) })
+      const hint = plugin?.install ? ` Установите: ${plugin.install}` : ''
+      if (servers.get(id) !== server) return false
+      setStatus(id, { state: 'error', message: cleanError(err) + hint })
+      // Tell once per session; the status bar keeps the details.
+      if (plugin && !warned.has(id)) {
+        warned.add(id)
+        toast(`${serverName(id)}: ${cleanError(err)}.${hint}`, 'error')
+      }
       return false
     })
   servers.set(id, server)
@@ -198,7 +224,7 @@ function docFor(model: Model): Doc | undefined {
 // ─────────────────────────── documents ───────────────────────────
 
 export async function attachModel(path: string, model: Model): Promise<void> {
-  const id = SERVER_FOR_LANGUAGE[model.getLanguageId()]
+  const id = serverForLanguage(model.getLanguageId())
   if (!id) return
   if (!(await ensureServer(id, path)) || model.isDisposed()) return
   const key = model.uri.toString()
@@ -299,7 +325,7 @@ function publishDiagnostics(params: any): void {
 function registerProviders(id: LspServerId): void {
   providers.get(id)?.forEach((d) => d.dispose())
   const caps = servers.get(id)!.caps
-  const langs = LANGUAGES_OF[id]
+  const langs = languagesOf(id)
   const list: monaco.IDisposable[] = []
   const td = (model: Model) => ({ uri: model.uri.toString() })
 
@@ -554,7 +580,7 @@ export function initLsp(opts: {
 
   api.onLspNotification((id, method, params: any) => {
     if (method === 'textDocument/publishDiagnostics') publishDiagnostics(params)
-    else if (method === 'window/showMessage' && params?.type === 1) notify(`${SERVER_NAMES[id]}: ${params.message}`, 'error')
+    else if (method === 'window/showMessage' && params?.type === 1) notify(`${serverName(id)}: ${params.message}`, 'error')
     else if (method === '$/progress' && params?.value) {
       const v = params.value
       const text = [v.title, v.message].filter(Boolean).join(' · ')
@@ -573,7 +599,7 @@ export function initLsp(opts: {
     // Crashed: bring it back and reopen its documents.
     setTimeout(() => {
       for (const [path, model] of opts.models()) {
-        if (SERVER_FOR_LANGUAGE[model.getLanguageId()] === id) attachModel(path, model)
+        if (serverForLanguage(model.getLanguageId()) === id) attachModel(path, model)
       }
     }, 800)
   })
@@ -593,5 +619,5 @@ export async function stopAll(): Promise<void> {
 }
 
 export function serverForLanguage(languageId: string): LspServerId | undefined {
-  return SERVER_FOR_LANGUAGE[languageId]
+  return BUILTIN_FOR_LANGUAGE[languageId] ?? pluginServers().find((s) => s.item.languages.includes(languageId))?.item.id
 }

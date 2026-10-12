@@ -2,6 +2,7 @@ import { monaco } from './monaco'
 import { getState, setState } from './store'
 import { basename, extname, isUntitled } from './lib/path'
 import * as lsp from './lspClient'
+import { fontStack } from './fontService'
 
 type Model = monaco.editor.ITextModel
 
@@ -15,8 +16,18 @@ let diffInline = false
 let revealPending = false
 let shownPath: string | null = null
 
-const FONT_FAMILY =
-  '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace'
+const createdHooks: ((model: Model) => void)[] = []
+
+/** Run `cb` for every real file model that gets created (task markers, etc.). */
+export function onModelCreated(cb: (model: Model) => void): void {
+  createdHooks.push(cb)
+}
+
+/** The editor path behind a model URI (only for open files). */
+export function pathForModel(model: Model): string | null {
+  for (const [path, m] of models) if (m === model) return path
+  return null
+}
 
 function uriFor(path: string): monaco.Uri {
   return isUntitled(path) ? monaco.Uri.parse(path) : monaco.Uri.file(path)
@@ -26,7 +37,7 @@ function editorOptions(): monaco.editor.IEditorOptions & monaco.editor.IGlobalEd
   const s = getState().settings
   return {
     fontSize: s.fontSize,
-    fontFamily: FONT_FAMILY,
+    fontFamily: fontStack(),
     fontLigatures: s.fontLigatures,
     lineHeight: Math.round(s.fontSize * 1.6),
     tabSize: s.tabSize,
@@ -88,13 +99,21 @@ export function mountEditor(el: HTMLElement): () => void {
   })
   const subs = [
     editor.onDidChangeCursorSelection(syncStatus),
-    editor.onDidChangeModel(syncStatus)
+    editor.onDidChangeModel(() => {
+      syncStatus()
+      updateErrorLens()
+    }),
+    monaco.editor.onDidChangeMarkers((uris) => {
+      const uri = editor?.getModel()?.uri.toString()
+      if (uri && uris.some((u) => u.toString() === uri)) updateErrorLens()
+    })
   ]
   for (const a of extraActions) editor.addAction(a)
   if (shownPath && models.has(shownPath)) show(shownPath, false)
   return () => {
     subs.forEach((s) => s.dispose())
     if (shownPath && editor) viewStates.set(shownPath, editor.saveViewState())
+    lens = null
     editor?.dispose()
     editor = null
   }
@@ -243,10 +262,64 @@ export function allModels(): [string, Model][] {
   return [...models.entries()]
 }
 
+// ─────────────────────────── Error Lens ───────────────────────────
+
+let lens: monaco.editor.IEditorDecorationsCollection | null = null
+const SEVERITY_NAME: Record<number, string> = {
+  [monaco.MarkerSeverity.Error]: 'error',
+  [monaco.MarkerSeverity.Warning]: 'warning',
+  [monaco.MarkerSeverity.Info]: 'info',
+  [monaco.MarkerSeverity.Hint]: 'hint'
+}
+
+/**
+ * Show the most severe diagnostic of each line right after the code, plus a
+ * coloured bar in the gutter, so errors are visible without hovering.
+ */
+export function updateErrorLens(): void {
+  if (!editor) return
+  const model = editor.getModel()
+  lens ??= editor.createDecorationsCollection()
+  if (!model || !getState().settings.errorLens) {
+    lens.clear()
+    return
+  }
+  const byLine = new Map<number, monaco.editor.IMarker>()
+  for (const m of monaco.editor.getModelMarkers({ resource: model.uri })) {
+    if (m.severity < monaco.MarkerSeverity.Info) continue
+    const prev = byLine.get(m.startLineNumber)
+    if (!prev || m.severity > prev.severity) byLine.set(m.startLineNumber, m)
+  }
+  const decorations: monaco.editor.IModelDeltaDecoration[] = []
+  for (const [line, m] of byLine) {
+    if (line > model.getLineCount()) continue
+    const kind = SEVERITY_NAME[m.severity] ?? 'info'
+    const text = m.message.split('\n')[0]
+    const max = model.getLineMaxColumn(line)
+    // Monaco drops injected text on whole-line decorations, so the message gets its own.
+    decorations.push(
+      {
+        range: new monaco.Range(line, 1, line, 1),
+        options: { className: `el-line el-line-${kind}`, isWholeLine: true, linesDecorationsClassName: `el-gutter el-gutter-${kind}` }
+      },
+      {
+        range: new monaco.Range(line, max, line, max),
+        options: {
+          showIfCollapsed: true,
+          after: { content: `   ${text.length > 140 ? text.slice(0, 139) + '…' : text}`, inlineClassName: `el-text el-text-${kind}` }
+        }
+      }
+    )
+  }
+  lens.set(decorations)
+}
+
 export function applyEditorOptions(): void {
   monaco.editor.setTheme(getState().settings.theme)
   editor?.updateOptions(editorOptions())
   diffEditor?.updateOptions(diffOptions())
+  monaco.editor.remeasureFonts()
+  updateErrorLens()
   for (const m of models.values()) m.updateOptions({ tabSize: getState().settings.tabSize })
 }
 
@@ -267,7 +340,10 @@ export function createModel(path: string, content: string, language?: string): M
   model.onDidChangeContent(() => {
     if (models.get(path) === model) syncDirty(path)
   })
-  if (!isUntitled(path)) lsp.attachModel(path, model)
+  if (!isUntitled(path)) {
+    lsp.attachModel(path, model)
+    for (const cb of createdHooks) cb(model)
+  }
   return model
 }
 

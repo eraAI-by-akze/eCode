@@ -96,6 +96,10 @@
       {
         "from": "resources/era",
         "to": "era"
+      },
+      {
+        "from": "resources/plugins",
+        "to": "plugins"
       }
     ],
     "npmRebuild": false

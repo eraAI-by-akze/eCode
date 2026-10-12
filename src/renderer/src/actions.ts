@@ -1,9 +1,11 @@
-import { DEFAULT_ERA, type Settings } from '@shared/types'
+import { DEFAULT_ERA, DEFAULT_SETTINGS, type Settings } from '@shared/types'
 import * as ed from './editorService'
 import * as lsp from './lspClient'
 import { monaco } from './monaco'
 import { refreshGit } from './scm'
 import { askAboutSelection } from './eraService'
+import { currentFontName, detectAutoFont, loadFont } from './fontService'
+import { loadPlugins } from './pluginService'
 import { getState, setState, useStore, type PickItem, type SidebarView } from './store'
 import { THEMES, THEME_LIST, applyThemeVars } from './themes'
 import { basename, dirname, isInside, isUntitled } from './lib/path'
@@ -28,10 +30,36 @@ function fail(err: unknown): void {
 
 // ──────────────────────────── settings ────────────────────────────
 
+type ViewTransitionDoc = Document & { startViewTransition?: (cb: () => void) => unknown }
+
+/** Cross-fade between themes where the engine supports View Transitions. */
+function withTransition(apply: () => void): void {
+  const doc = document as ViewTransitionDoc
+  if (doc.startViewTransition && getState().settings.animations) doc.startViewTransition(apply)
+  else apply()
+}
+
+export function applyAnimationSetting(on: boolean): void {
+  document.documentElement.classList.toggle('no-anim', !on)
+}
+
 export function updateSettings(patch: Partial<Settings>): void {
+  if (patch.theme && patch.theme !== getState().settings.theme) {
+    const theme = patch.theme
+    withTransition(() => {
+      setState((s) => ({ settings: { ...s.settings, theme } }))
+      applyThemeVars(THEMES[theme])
+      ed.applyEditorOptions()
+    })
+  }
   setState((s) => ({ settings: { ...s.settings, ...patch } }))
   api.saveSettings(patch)
-  if (patch.theme) applyThemeVars(THEMES[patch.theme])
+  if ('animations' in patch) applyAnimationSetting(!!patch.animations)
+  if ('errorLens' in patch) ed.updateErrorLens()
+  if ('editorFont' in patch) {
+    void loadFont(currentFontName(), getState().settings.fontSize).then(() => ed.applyEditorOptions())
+  }
+  if ('disabledPlugins' in patch) void restartLanguageServers(true)
   if (
     'theme' in patch ||
     'fontSize' in patch ||
@@ -58,9 +86,14 @@ function syncDirtyFlag(): void {
 
 export async function init(): Promise<void> {
   const loaded = await api.loadSettings()
-  const settings = { ...loaded, era: { ...DEFAULT_ERA, ...loaded.era } }
+  const settings = { ...DEFAULT_SETTINGS, ...loaded, era: { ...DEFAULT_ERA, ...loaded.era } }
+  // A theme id from an older or hand-edited settings file falls back to the default.
+  if (!THEMES[settings.theme]) settings.theme = DEFAULT_SETTINGS.theme
   setState({ settings })
-  applyThemeVars(THEMES[settings.theme] ?? THEMES['era-glass'])
+  applyAnimationSetting(settings.animations)
+  // Nerd Font detection and plugins load before any editor or language server starts.
+  await Promise.all([detectAutoFont().then(() => loadFont(currentFontName(), settings.fontSize)), loadPlugins()])
+  applyThemeVars(THEMES[settings.theme])
   ed.applyEditorOptions()
 
   ed.addEditorAction('eraai.explain', 'eraAI: объяснить', () => askAboutSelection('explain'), 1)
@@ -185,7 +218,7 @@ export async function loadDir(dir: string): Promise<void> {
 export async function toggleDir(dir: string, open?: boolean): Promise<void> {
   const isOpen = !!getState().expanded[dir]
   const next = open ?? !isOpen
-  setState((s) => ({ expanded: { ...s.expanded, [dir]: next } }))
+  setState((s) => ({ expanded: { ...s.expanded, [dir]: next }, expandPulse: next ? { dir, at: Date.now() } : s.expandPulse }))
   if (next && !getState().tree[dir]) await loadDir(dir)
 }
 
@@ -499,14 +532,14 @@ export function togglePanel(): void {
   setState((s) => ({ panelOpen: !s.panelOpen }))
 }
 
-export function showPanel(tab: 'terminal' | 'problems'): void {
+export function showPanel(tab: 'terminal' | 'problems' | 'output'): void {
   setState({ panelOpen: true, panelTab: tab })
 }
 
-export async function restartLanguageServers(): Promise<void> {
+export async function restartLanguageServers(silent = false): Promise<void> {
   await lsp.stopAll()
   for (const [path, model] of ed.allModels()) if (!isUntitled(path)) void lsp.attachModel(path, model)
-  toast('Языковые серверы перезапущены')
+  if (!silent) toast('Языковые серверы перезапущены')
 }
 
 export function zoom(delta: number): void {

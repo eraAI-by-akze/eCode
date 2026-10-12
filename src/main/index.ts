@@ -6,6 +6,11 @@ import { registerSettingsHandlers, flushSettings } from './settings'
 import { registerLspHandlers, stopAllLanguageServers } from './lsp'
 import { registerGitHandlers } from './git'
 import { registerEraHandlers, stopEra } from './era'
+import { registerTaskHandlers, killAllTasks } from './tasks'
+import { fixPath } from './shellEnv'
+
+// Before anything spawns tools: give GUI launches the shell's PATH.
+fixPath()
 
 const isMac = process.platform === 'darwin'
 
@@ -175,6 +180,7 @@ app.whenReady().then(() => {
   registerLspHandlers(() => mainWindow)
   registerGitHandlers()
   registerEraHandlers(() => mainWindow)
+  registerTaskHandlers()
   registerSettingsHandlers()
   createWindow()
 
@@ -193,6 +199,7 @@ app.on('before-quit', () => {
   killAllTerminals()
   stopAllLanguageServers()
   stopEra()
+  killAllTasks()
   flushSettings()
 })
 

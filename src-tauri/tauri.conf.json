@@ -20,12 +20,19 @@
     "targets": "all",
     "category": "DeveloperTool",
     "shortDescription": "eCode — For humans and comfort",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "resources": {
       "../resources/era/bridge.py": "era/bridge.py",
       "../node_modules/pyright/": "node_modules/pyright/",
       "../node_modules/typescript-language-server/": "node_modules/typescript-language-server/",
-      "../node_modules/typescript/": "node_modules/typescript/"
+      "../node_modules/typescript/": "node_modules/typescript/",
+      "../resources/plugins/": "plugins/"
     }
   }
 }

@@ -117,7 +117,7 @@ export function createTauriApi(): EcodeApi {
     onTermData: (cb) => subscribe<{ id: number; data: string }>('term:data', (p) => cb(p.id, p.data)),
     onTermExit: (cb) => subscribe<{ id: number; code: number | null }>('term:exit', (p) => cb(p.id, p.code)),
 
-    lspStart: (server, root) => invoke('lsp_start', { server, root }),
+    lspStart: (server, root, spec) => invoke('lsp_start', { server, root, spec: spec ?? null }),
     lspRequest: (server, method, params) => invoke('lsp_request', { server, method, params: params ?? null }),
     lspNotify: (server, method, params) => void invoke('lsp_notify', { server, method, params: params ?? null }),
     lspStopAll: () => invoke('lsp_stop_all'),
@@ -153,6 +153,15 @@ export function createTauriApi(): EcodeApi {
         ]
       })) as string | null) ?? null,
     onEraEvent: (cb) => subscribe<Record<string, unknown>>('era:event', cb),
+
+    pluginsList: () => invoke('plugins_list'),
+    pluginsDir: () => invoke('plugins_dir'),
+    taskRun: (command, cwd) => invoke('task_run', { command, cwd }),
+    taskKill: (id) => void invoke('task_kill', { id }),
+    onTaskOutput: (cb) => subscribe<{ id: number; data: string }>('task:output', (p) => cb(p.id, p.data)),
+    onTaskExit: (cb) => subscribe<{ id: number; code: number | null }>('task:exit', (p) => cb(p.id, p.code)),
+    which: (command) => invoke('which', { command }),
+    listFonts: () => invoke('list_fonts'),
 
     loadSettings: async () => {
       const saved = await invoke<Partial<Settings>>('settings_load')

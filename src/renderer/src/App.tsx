@@ -106,7 +106,12 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const cmd = commandForEvent(e)
-      if (!cmd || (cmd.when && !cmd.when())) return
+      // Never let the webview reload the app (WebView2 maps F5 / Ctrl+R to reload).
+      const reload = e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')
+      if (!cmd || (cmd.when && !cmd.when())) {
+        if (reload) e.preventDefault()
+        return
+      }
       // Inside the terminal, keys belong to the shell unless the command is global.
       if (!cmd.global && (document.activeElement as HTMLElement | null)?.closest('.xterm')) return
       e.preventDefault()

@@ -2442,3 +2442,646 @@ button.sb-item:hover {
   margin: 4px 6px;
   background: var(--border);
 }
+
+/* ═════════════════════════ motion ═════════════════════════ */
+
+:root {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* "Анимации интерфейса" off: same as prefers-reduced-motion. */
+.no-anim *,
+.no-anim *::before,
+.no-anim *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Theme switch cross-fade (View Transitions API). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.38s;
+  animation-timing-function: var(--ease);
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.94);
+  }
+}
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+@keyframes bump {
+  0% {
+    transform: scale(1.45);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+}
+@keyframes logo-in {
+  from {
+    opacity: 0;
+    transform: rotate(-120deg) scale(0.4);
+  }
+}
+@keyframes panel-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+@keyframes glow {
+  50% {
+    filter: drop-shadow(0 0 6px var(--accent));
+  }
+}
+
+.view-enter {
+  animation: view-in 0.24s var(--ease);
+}
+.sidebar-wrap {
+  animation: sidebar-in 0.26s var(--ease);
+}
+.panel-wrap {
+  animation: panel-up 0.26s var(--ease);
+}
+.tab {
+  animation: tab-in 0.24s var(--spring);
+}
+.tree-row.row-enter {
+  animation: row-in 0.22s var(--ease) both;
+}
+.bump {
+  display: inline-block;
+  animation: bump 0.35s var(--spring);
+}
+.ai-msg {
+  animation: rise-in 0.28s var(--ease);
+}
+.ai-tool {
+  animation: tab-in 0.26s var(--spring);
+}
+.plugin-card,
+.theme-card,
+.scm-file {
+  animation: rise-in 0.3s var(--ease) both;
+}
+
+/* Sliding activity-bar indicator. */
+.activitybar {
+  position: relative;
+}
+.ab-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 10px var(--accent);
+  transition: transform 0.42s var(--spring), opacity 0.2s;
+}
+.ab-indicator.hidden {
+  opacity: 0;
+}
+.ab-item.active.slid::before {
+  display: none;
+}
+
+/* Small press feedback on toolbar-like buttons. */
+.header-actions button:active:not(:disabled),
+.tb-toggle:active,
+.sb-item:active,
+.panel-tab:active,
+.btn-ghost:active,
+.ai-chips button:active {
+  transform: scale(0.94);
+}
+
+/* Logo: spins while a build or eraAI works; ignites on the welcome screen. */
+.titlebar-logo.busy {
+  background: var(--accent-gradient);
+  animation: spin 1.8s linear infinite, glow 1.8s ease-in-out infinite;
+}
+.welcome-hero .logo {
+  animation: logo-in 0.9s var(--spring) both, float 6s ease-in-out 0.9s infinite;
+}
+.welcome-hero h1 {
+  animation: rise-in 0.5s var(--ease) 0.15s both;
+}
+.welcome-hero p {
+  animation: rise-in 0.5s var(--ease) 0.25s both;
+}
+.welcome-col {
+  animation: rise-in 0.5s var(--ease) 0.35s both;
+}
+.welcome-col + .welcome-col {
+  animation-delay: 0.45s;
+}
+
+/* ═════════════════════════ errors everywhere ═════════════════════════ */
+
+/* Error Lens: message after the code, tinted line, gutter bar. */
+.monaco-editor .el-text {
+  font-style: italic;
+  opacity: 0.9;
+}
+.monaco-editor .el-text-error {
+  color: var(--danger) !important;
+}
+.monaco-editor .el-text-warning {
+  color: var(--warning) !important;
+}
+.monaco-editor .el-text-info {
+  color: var(--accent-2) !important;
+}
+.monaco-editor .el-line-error {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.monaco-editor .el-line-warning {
+  background: color-mix(in srgb, var(--warning) 6%, transparent);
+}
+.monaco-editor .el-gutter {
+  width: 3px !important;
+  margin-left: 4px;
+  border-radius: 2px;
+}
+.monaco-editor .el-gutter-error {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+.monaco-editor .el-gutter-warning {
+  background: var(--warning);
+}
+.monaco-editor .el-gutter-info {
+  background: var(--accent-2);
+}
+
+/* Explorer and tabs. */
+.tree-row.has-errors .tree-label,
+.tree-row.dir-errors .tree-label {
+  color: var(--danger);
+}
+.tree-row.has-warnings .tree-label,
+.tree-row.dir-warnings .tree-label {
+  color: var(--warning);
+}
+.problem-count {
+  margin-left: auto;
+  flex: none;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  animation: bump 0.35s var(--spring);
+}
+.problem-count.err {
+  background: var(--danger);
+}
+.problem-count.warn {
+  background: var(--warning);
+  color: #1a1206;
+}
+.problem-count + .git-letter,
+.problem-count + .dirty-dot {
+  margin-left: 6px;
+}
+.problem-dot {
+  margin-left: auto;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.problem-dot.error {
+  background: var(--danger);
+}
+.problem-dot.warning {
+  background: var(--warning);
+}
+.tab.has-errors .tab-name {
+  color: var(--danger);
+  text-decoration: underline wavy color-mix(in srgb, var(--danger) 70%, transparent);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.tab.has-warnings .tab-name {
+  color: var(--warning);
+}
+.sev-error {
+  color: var(--danger);
+}
+.sev-warning {
+  color: var(--warning);
+}
+
+/* ═════════════════════════ tasks / output ═════════════════════════ */
+
+.panel-action {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  margin-left: 4px;
+  border-radius: 6px;
+  color: var(--text-faint);
+}
+.panel-action:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.output-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.output-status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 4px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.output-status .ok {
+  color: var(--success);
+}
+.output-status .fail {
+  color: var(--danger);
+}
+.btn-ghost.small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.output-log {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 14px 10px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+.output-line.err {
+  color: var(--danger);
+}
+.output-line.warn {
+  color: var(--warning);
+}
+.output-line.ok {
+  color: var(--success);
+}
+.output-line.link {
+  cursor: pointer;
+}
+.output-line.link:hover {
+  text-decoration: underline;
+}
+.sb-task {
+  color: var(--accent-2);
+}
+.sb-stop {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+.sb-stop:hover {
+  background: var(--hover);
+}
+
+/* ═════════════════════════ font picker ═════════════════════════ */
+
+.font-picker {
+  position: relative;
+  margin-bottom: 14px;
+}
+.font-current {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  text-align: left;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  transition: border-color 0.15s;
+}
+.font-current:hover {
+  border-color: var(--accent);
+}
+.font-name {
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.font-sample {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.font-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--elevated);
+  animation: tab-in 0.2s var(--ease);
+}
+.font-menu > input {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-solid);
+  outline: none;
+}
+.font-list {
+  max-height: 260px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.font-option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 13px;
+}
+.font-option:hover {
+  background: var(--hover);
+}
+.font-option.on {
+  background: var(--active);
+}
+.font-option small,
+.font-option em {
+  font-family: var(--ui-font);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--text-faint);
+}
+
+/* ═════════════════════════ plugins ═════════════════════════ */
+
+.plugins-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.plugins-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 10px 14px;
+}
+.plugin-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: opacity 0.2s, border-color 0.2s;
+}
+.plugin-card:hover {
+  border-color: var(--border-strong);
+}
+.plugin-card.off {
+  opacity: 0.55;
+}
+.plugin-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.plugin-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.plugin-title small {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.plugin-desc {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.plugin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  animation: rise-in 0.2s var(--ease);
+}
+.plugin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.plugin-tool {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.plugin-tool.ok {
+  color: var(--success);
+}
+.plugin-tool.missing {
+  color: var(--warning);
+}
+.plugin-tool code {
+  font-family: var(--mono);
+  color: var(--text);
+  white-space: nowrap;
+}
+.plugin-tool span {
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.plugin-tool .ai-link {
+  margin-left: auto;
+}
+.plugin-tool svg {
+  flex: none;
+}
+.plugin-tasks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.plugin-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  text-align: left;
+  max-width: 100%;
+  transition: border-color 0.15s, transform 0.15s var(--spring);
+}
+.plugin-task em {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.plugin-task:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.plugin-task em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.settings-hint code {
+  font-family: var(--mono);
+}
+
+/* ───────────── quick build (title bar) ───────────── */
+
+.tb-build {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  margin-right: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.25s;
+}
+.tb-build:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.tb-build button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.tb-build button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.tb-build-main {
+  padding: 0 10px 0 9px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.tb-build-main svg {
+  transition: transform 0.25s var(--spring);
+}
+.tb-build-main:hover svg {
+  transform: rotate(-18deg);
+}
+.tb-build-main:active svg {
+  transform: rotate(12deg) scale(0.92);
+}
+.tb-build-more {
+  padding: 0 6px;
+  border-left: 1px solid var(--border);
+}
+.tb-build.running {
+  border-color: var(--accent);
+  animation: build-pulse 1.4s ease-in-out infinite;
+}
+.tb-build.running .tb-build-main {
+  color: var(--text);
+}
+.tb-build.ok {
+  animation: build-flash-ok 1.2s var(--ease);
+}
+.tb-build.fail {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border-strong));
+  animation: build-flash-fail 1.2s var(--ease);
+}
+.tb-build.fail .tb-build-main svg {
+  color: var(--danger);
+}
+@keyframes build-pulse {
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+}
+@keyframes build-flash-ok {
+  0% {
+    border-color: var(--success);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 35%, transparent);
+  }
+}
+@keyframes build-flash-fail {
+  0% {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 35%, transparent);
+  }
+  20% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  60% {
+    transform: translateX(-1px);
+  }
+}

@@ -11,7 +11,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, State};
 
@@ -50,6 +50,16 @@ struct LspNotification {
 struct LspExit {
     server: String,
     code: Option<i32>,
+}
+
+/// A language server contributed by a plugin (its own executable).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LspSpec {
+    command: String,
+    #[serde(default)]
+    args: Vec<String>,
+    initialization_options: Option<Value>,
 }
 
 struct ServerDef {
@@ -232,7 +242,7 @@ fn send_request(
     Ok(rx)
 }
 
-fn initialize_params(app: &AppHandle, id: &str, root: &str) -> Value {
+fn initialize_params(app: &AppHandle, id: &str, root: &str, spec: Option<&LspSpec>) -> Value {
     let root_uri = file_uri(root);
     let name = Path::new(root)
         .file_name()
@@ -246,7 +256,7 @@ fn initialize_params(app: &AppHandle, id: &str, root: &str) -> Value {
             })
         })
     } else {
-        None
+        spec.and_then(|s| s.initialization_options.clone())
     };
     json!({
         "processId": std::process::id(),
@@ -316,7 +326,13 @@ fn stop_server(mut s: Server) {
     });
 }
 
-fn start_blocking(app: AppHandle, state: &LspState, id: String, root: String) -> CmdResult<Value> {
+fn start_blocking(
+    app: AppHandle,
+    state: &LspState,
+    id: String,
+    root: String,
+    spec: Option<LspSpec>,
+) -> CmdResult<Value> {
     let _guard = state.lifecycle.lock().unwrap_or_else(|e| e.into_inner());
     {
         let mut servers = state.servers.lock().map_err(err)?;
@@ -329,20 +345,41 @@ fn start_blocking(app: AppHandle, state: &LspState, id: String, root: String) ->
             stop_server(old);
         }
     }
-    let d = def(&id).ok_or_else(|| format!("Unknown language server {id}"))?;
-    let script: PathBuf = resource(&app, d.script)
-        .ok_or_else(|| format!("Не найден языковой сервер: {}", d.script))?;
-    let mut child = command(&node_binary())
-        .arg(&script)
-        .args(d.args)
-        .current_dir(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| {
-            format!("Node.js не найден ({e}). Установите Node.js или укажите путь в ECODE_NODE.")
-        })?;
+    // Bundled servers run on Node; plugin servers are their own executables.
+    let mut child = match (def(&id), spec.as_ref()) {
+        (Some(d), _) => {
+            let script: PathBuf = resource(&app, d.script)
+                .ok_or_else(|| format!("Не найден языковой сервер: {}", d.script))?;
+            command(&node_binary())
+                .arg(&script)
+                .args(d.args)
+                .current_dir(&root)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| {
+                    format!(
+                        "Node.js не найден ({e}). Установите Node.js или укажите путь в ECODE_NODE."
+                    )
+                })?
+        }
+        (None, Some(sp)) => {
+            // Resolve through PATH(EXT) so `.cmd` shims work on Windows.
+            let program = crate::tasks::which_path(&sp.command)
+                .map(|p| to_string_lossy(&p))
+                .unwrap_or_else(|| sp.command.clone());
+            command(&program)
+                .args(&sp.args)
+                .current_dir(&root)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|_| format!("{} не найден", sp.command))?
+        }
+        (None, None) => return Err(format!("Unknown language server {id}")),
+    };
 
     let stdin = Arc::new(Mutex::new(child.stdin.take().ok_or("no stdin")?));
     let stdout = child.stdout.take().ok_or("no stdout")?;
@@ -406,7 +443,7 @@ fn start_blocking(app: AppHandle, state: &LspState, id: String, root: String) ->
         &pending,
         &next_id,
         "initialize",
-        initialize_params(&app, &id, &root),
+        initialize_params(&app, &id, &root, spec.as_ref()),
     )?;
     let result = rx
         .recv_timeout(Duration::from_secs(60))
@@ -439,10 +476,15 @@ fn start_blocking(app: AppHandle, state: &LspState, id: String, root: String) ->
 }
 
 #[tauri::command]
-pub async fn lsp_start(app: AppHandle, server: String, root: String) -> CmdResult<Value> {
+pub async fn lsp_start(
+    app: AppHandle,
+    server: String,
+    root: String,
+    spec: Option<LspSpec>,
+) -> CmdResult<Value> {
     tauri::async_runtime::spawn_blocking(move || {
         let state: State<'_, LspState> = tauri::Manager::state(&app);
-        start_blocking(app.clone(), &state, server, root)
+        start_blocking(app.clone(), &state, server, root, spec)
     })
     .await
     .map_err(err)?

@@ -2,7 +2,8 @@ import { useStore } from '../store'
 import * as a from '../actions'
 import { basename } from '../lib/path'
 import { formatKeys } from '../commands'
-import { IconClose, IconMaximize, IconMinimize, IconRestore, IconSearch, IconSplit, Logo } from './Icons'
+import * as tasks from '../taskService'
+import { IconChevron, IconClose, IconHammer, IconMaximize, IconMinimize, IconRestore, IconSearch, IconSplit, Logo } from './Icons'
 
 const api = window.ecode
 const isMac = api.platform === 'darwin'
@@ -12,6 +13,10 @@ export function TitleBar() {
   const maximized = useStore((s) => s.maximized)
   const sidebar = useStore((s) => s.sidebar)
   const panelOpen = useStore((s) => s.panelOpen)
+  // The mark spins while something works in the background (a build, eraAI).
+  const busy = useStore((s) => !!s.task || !!s.aiBusy)
+  const task = useStore((s) => s.task)
+  const last = useStore((s) => s.lastTask)
 
   return (
     <header
@@ -21,7 +26,7 @@ export function TitleBar() {
       onDoubleClick={isMac || api.runtime === 'tauri' ? undefined : () => api.toggleMaximize()}
     >
       <div className="titlebar-left" data-tauri-drag-region>
-        <Logo size={22} className="titlebar-logo" data-tauri-drag-region title="eCode" />
+        <Logo size={22} className={`titlebar-logo ${busy ? 'busy' : ''}`} data-tauri-drag-region title="eCode" />
         <nav className="titlebar-menu">
           <button onClick={() => a.openFolder()}>Открыть</button>
           <button onClick={() => a.beginCreate('newFile')}>Новый</button>
@@ -36,6 +41,28 @@ export function TitleBar() {
       </button>
 
       <div className="titlebar-right" data-tauri-drag-region>
+        {root && (
+          <div
+            className={`tb-build ${task ? 'running' : last ? (last.code === 0 ? 'ok' : 'fail') : ''}`}
+            // Re-keyed per result so the flash replays after every build.
+            key={task ? 'run' : `done-${last?.ms ?? 0}`}
+          >
+            {task ? (
+              <button className="tb-build-main" title={`${task.label} — остановить (Shift+F5)`} onClick={() => tasks.stopTask()}>
+                <span className="spinner tiny" />
+                <span>Стоп</span>
+              </button>
+            ) : (
+              <button className="tb-build-main" title={`Собрать (${formatKeys(['f5'])})`} onClick={() => void tasks.quickBuild()}>
+                <IconHammer size={14} />
+                <span>Собрать</span>
+              </button>
+            )}
+            <button className="tb-build-more" title="Выбрать задачу…" onClick={() => void tasks.runGroup('any')}>
+              <IconChevron size={11} style={{ transform: 'rotate(90deg)' }} />
+            </button>
+          </div>
+        )}
         <button
           className={`tb-toggle ${sidebar ? 'on' : ''}`}
           title="Боковая панель"

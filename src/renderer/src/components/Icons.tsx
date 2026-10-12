@@ -156,6 +156,19 @@ export const IconInfo = make(
 export const IconPlay = make(<path d="M7 4.5v15l12-7.5z" />)
 export const IconColumns = make(<path d="M4 4h16v16H4zM12 4v16" />)
 
+export const IconPuzzle = make(
+  <path d="M10 4a2 2 0 1 1 4 0v1h3a1 1 0 0 1 1 1v3h1a2 2 0 1 1 0 4h-1v4a1 1 0 0 1-1 1h-4v-1a2 2 0 1 0-4 0v1H6a1 1 0 0 1-1-1v-4h1a2 2 0 1 0 0-4H5V6a1 1 0 0 1 1-1h4z" />
+)
+export const IconHammer = make(
+  <>
+    <path d="m15 12-8.4 8.4a2.1 2.1 0 0 1-3-3L12 9" />
+    <path d="m18 15 4-4" />
+    <path d="m21.5 11.5-1.9-1.9A2 2 0 0 1 19 8.2V7l-2.3-2.3A6 6 0 0 0 12.5 3H9l.9.8A6.2 6.2 0 0 1 12 8.4V10l2 2h1.2a2 2 0 0 1 1.4.6l1.9 1.9" />
+  </>
+)
+export const IconStop = make(<rect x="6.5" y="6.5" width="11" height="11" rx="2" />, true)
+export const IconFont = make(<path d="M4 20 10 4h1l6 16M6.5 14h8M17 20h4" />)
+
 // ─────────────────────────── file icons ───────────────────────────
 
 const FILE_COLORS: Record<string, [string, string]> = {

@@ -48,7 +48,7 @@ const api: EcodeApi = {
   onTermData: (cb) => subscribe('term:data', cb),
   onTermExit: (cb) => subscribe('term:exit', cb),
 
-  lspStart: (server, root) => ipcRenderer.invoke('lsp:start', server, root),
+  lspStart: (server, root, spec) => ipcRenderer.invoke('lsp:start', server, root, spec),
   lspRequest: (server, method, params) => ipcRenderer.invoke('lsp:request', server, method, params),
   lspNotify: (server, method, params) => ipcRenderer.send('lsp:notify', server, method, params),
   lspStopAll: () => ipcRenderer.invoke('lsp:stopAll'),
@@ -73,6 +73,15 @@ const api: EcodeApi = {
   eraListModels: (url) => ipcRenderer.invoke('era:listModels', url),
   eraPickModelFile: () => ipcRenderer.invoke('era:pickModelFile'),
   onEraEvent: (cb) => subscribe('era:event', cb),
+
+  pluginsList: () => ipcRenderer.invoke('plugins:list'),
+  pluginsDir: () => ipcRenderer.invoke('plugins:dir'),
+  taskRun: (command, cwd) => ipcRenderer.invoke('task:run', command, cwd),
+  taskKill: (id) => ipcRenderer.send('task:kill', id),
+  onTaskOutput: (cb) => subscribe('task:output', cb),
+  onTaskExit: (cb) => subscribe('task:exit', cb),
+  which: (command) => ipcRenderer.invoke('tools:which', command),
+  listFonts: () => ipcRenderer.invoke('fonts:list'),
 
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (patch) => ipcRenderer.send('settings:save', patch)

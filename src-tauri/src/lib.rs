@@ -7,6 +7,7 @@ mod fs;
 mod git;
 mod lsp;
 mod settings;
+mod tasks;
 mod terminal;
 mod util;
 
@@ -15,6 +16,8 @@ use std::sync::atomic::Ordering;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 pub fn run() {
+    // Before anything spawns tools: give GUI launches the shell's PATH.
+    tasks::fix_path();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -24,6 +27,7 @@ pub fn run() {
         .manage(lsp::LspState::default())
         .manage(era::EraState::default())
         .manage(settings::SettingsState::default())
+        .manage(tasks::TaskState::default())
         .setup(|app| {
             let mut win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("eCode")
@@ -92,6 +96,12 @@ pub fn run() {
             era::era_send,
             era::era_stop,
             era::era_list_models,
+            tasks::task_run,
+            tasks::task_kill,
+            tasks::which,
+            tasks::plugins_dir,
+            tasks::plugins_list,
+            tasks::list_fonts,
             settings::settings_load,
             settings::settings_save,
         ])
@@ -102,6 +112,7 @@ pub fn run() {
                 terminal::kill_all(&handle.state::<terminal::TermState>());
                 lsp::stop_all(&handle.state::<lsp::LspState>());
                 era::stop_all(&handle.state::<era::EraState>());
+                tasks::kill_all(&handle.state::<tasks::TaskState>());
             }
         });
 }

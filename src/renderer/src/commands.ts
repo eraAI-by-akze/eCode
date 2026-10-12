@@ -3,6 +3,7 @@ import * as ed from './editorService'
 import * as scm from './scm'
 import * as term from './terminalService'
 import * as era from './eraService'
+import * as tasks from './taskService'
 import { getState } from './store'
 import { extname, isUntitled } from './lib/path'
 
@@ -43,6 +44,17 @@ const RUNNERS: Record<string, (q: string) => string> = {
 async function runActiveFile(): Promise<void> {
   const p = getState().active
   if (!p) return
+  const fromPlugin = await tasks.runnerFor(p).catch((err: Error) => {
+    a.toast(err.message, 'error')
+    return undefined
+  })
+  if (fromPlugin === undefined) return
+  if (fromPlugin) {
+    await a.save(p)
+    const { command, cwd } = fromPlugin
+    await term.runInTerminal(window.ecode.platform === 'win32' ? `cd "${cwd}"; ${command}` : `cd "${cwd}" && ${command}`)
+    return
+  }
   const runner = RUNNERS[extname(p)]
   if (!runner) {
     a.toast('Не знаю, как запустить этот тип файла')
@@ -111,6 +123,17 @@ export const COMMANDS: Command[] = [
   { id: 'gitFetch', label: 'Git: fetch', run: () => scm.sync('fetch'), when: hasRepo },
   { id: 'gitBranch', label: 'Git: сменить ветку…', run: () => scm.pickBranch(), when: hasRepo },
   { id: 'gitInit', label: 'Git: инициализировать репозиторий', run: () => scm.initRepo(), when: () => hasRoot() && !hasRepo() },
+  { id: 'tasks.run', label: 'Задачи: выполнить…', run: () => void tasks.runGroup('any'), when: hasRoot },
+  { id: 'tasks.quickBuild', label: 'Собрать (последняя задача сборки)', keys: ['f5'], run: () => void tasks.quickBuild(), when: hasRoot, global: true },
+  { id: 'tasks.build', label: 'Задачи: собрать проект…', keys: ['mod+shift+b'], run: () => void tasks.runGroup('build'), when: hasRoot, global: true },
+  { id: 'tasks.check', label: 'Задачи: проверить проект на ошибки', run: () => void tasks.runGroup('check'), when: hasRoot },
+  { id: 'tasks.test', label: 'Задачи: запустить тесты', run: () => void tasks.runGroup('test'), when: hasRoot },
+  { id: 'tasks.format', label: 'Задачи: форматировать проект', run: () => void tasks.runGroup('format'), when: hasRoot },
+  { id: 'tasks.stop', label: 'Задачи: остановить', keys: ['shift+f5'], run: () => tasks.stopTask(), when: () => !!getState().task, global: true },
+  { id: 'tasks.clear', label: 'Задачи: очистить найденные ошибки', run: () => tasks.clearTaskProblems() },
+  { id: 'output', label: 'Показать вывод задач', run: () => a.showPanel('output') },
+  { id: 'plugins', label: 'Плагины', keys: ['mod+shift+x'], run: () => a.focusSidebar('plugins'), global: true },
+  { id: 'errorLens', label: 'Ошибки в строке (Error Lens): вкл/выкл', run: () => a.updateSettings({ errorLens: !getState().settings.errorLens }) },
   { id: 'aiChat', label: 'eraAI: открыть чат', keys: ['mod+shift+a'], run: () => a.focusSidebar('ai'), global: true },
   { id: 'aiDeploy', label: 'eraAI: развернуть модель', run: () => void era.deploy() },
   { id: 'aiExplain', label: 'eraAI: объяснить выделенное', run: () => era.askAboutSelection('explain'), when: hasRealFile },

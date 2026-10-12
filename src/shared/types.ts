@@ -98,6 +98,12 @@ export interface Settings {
   openFiles: string[]
   activeFile: string | null
   era: EraSettings
+  /** Editor + terminal font family; '' = auto (first Nerd Font found). */
+  editorFont: string
+  /** Show diagnostics inline at the end of the line. */
+  errorLens: boolean
+  animations: boolean
+  disabledPlugins: string[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -114,7 +120,11 @@ export const DEFAULT_SETTINGS: Settings = {
   recent: [],
   openFiles: [],
   activeFile: null,
-  era: DEFAULT_ERA
+  era: DEFAULT_ERA,
+  editorFont: '',
+  errorLens: true,
+  animations: true,
+  disabledPlugins: []
 }
 
 export interface TermInfo {
@@ -125,7 +135,75 @@ export interface TermInfo {
   pty: boolean
 }
 
-export type LspServerId = 'typescript' | 'python'
+/** Built-in ids ('typescript', 'python') or a plugin-defined server id. */
+export type LspServerId = string
+
+/** How to launch a language server that isn't bundled (from a plugin). */
+export interface LspSpec {
+  command: string
+  args?: string[]
+  initializationOptions?: unknown
+}
+
+// ───────────── plugins ─────────────
+
+export interface PluginLanguageServer {
+  id: string
+  name: string
+  /** Monaco language ids, e.g. ["rust"]. */
+  languages: string[]
+  command: string
+  args?: string[]
+  initializationOptions?: unknown
+  /** Shell command that installs the server, shown when it's missing. */
+  install?: string
+}
+
+export interface ProblemMatcherSpec {
+  /** Regex with named groups: file, line, column?, severity?, code?, message. */
+  regexp: string
+  severity?: 'error' | 'warning' | 'info'
+}
+
+export interface PluginTask {
+  id: string
+  label: string
+  group?: 'build' | 'check' | 'test' | 'run' | 'format' | 'clean'
+  /** Shell command; supports ${file}, ${workspaceFolder}, ${find:glob}, ${findDir:glob}, ${pluginDir}. */
+  command: string
+  cwd?: string
+  /** Built-in matcher name (msbuild, rustc, gcc, tsc, python) or a custom one. */
+  problemMatcher?: string | ProblemMatcherSpec | (string | ProblemMatcherSpec)[]
+  /** Run in the interactive terminal instead of the Output panel. */
+  terminal?: boolean
+  /** Only offered when the workspace contains a file matching one of these globs. */
+  when?: { files?: string[] }
+}
+
+export interface PluginRunner {
+  extensions: string[]
+  command: string
+  cwd?: string
+}
+
+export interface PluginManifest {
+  id: string
+  name: string
+  version?: string
+  description?: string
+  /** CLI tools the plugin relies on, checked and shown in the Plugins view. */
+  requires?: { command: string; install?: string }[]
+  languageServers?: PluginLanguageServer[]
+  tasks?: PluginTask[]
+  runners?: PluginRunner[]
+}
+
+export interface PluginEntry {
+  dir: string
+  builtin: boolean
+  manifest?: PluginManifest
+  error?: string
+}
 
 export interface GitFile {
   /** Absolute path. */
@@ -209,7 +287,7 @@ export interface EcodeApi {
   onTermData(cb: (id: number, data: string) => void): () => void
   onTermExit(cb: (id: number, code: number | null) => void): () => void
   // language servers
-  lspStart(server: LspServerId, root: string): Promise<{ capabilities: Record<string, unknown> }>
+  lspStart(server: LspServerId, root: string, spec?: LspSpec): Promise<{ capabilities: Record<string, unknown> }>
   lspRequest(server: LspServerId, method: string, params: unknown): Promise<unknown>
   lspNotify(server: LspServerId, method: string, params: unknown): void
   lspStopAll(): Promise<void>
@@ -234,6 +312,18 @@ export interface EcodeApi {
   eraListModels(url: string): Promise<string[]>
   eraPickModelFile(): Promise<string | null>
   onEraEvent(cb: (msg: Record<string, unknown>) => void): () => void
+  // plugins, tasks, tools
+  pluginsList(): Promise<PluginEntry[]>
+  /** User plugin folder (created if missing). */
+  pluginsDir(): Promise<string>
+  taskRun(command: string, cwd: string): Promise<number>
+  taskKill(id: number): void
+  onTaskOutput(cb: (id: number, data: string) => void): () => void
+  onTaskExit(cb: (id: number, code: number | null) => void): () => void
+  /** Absolute path of a CLI tool on PATH, or null. */
+  which(command: string): Promise<string | null>
+  /** Installed font families (may be empty where the runtime can't enumerate). */
+  listFonts(): Promise<string[]>
   // settings
   loadSettings(): Promise<Settings>
   saveSettings(patch: Partial<Settings>): void

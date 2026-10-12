@@ -1,0 +1,72 @@
+{
+  "id": "ecode.rust",
+  "name": "Rust",
+  "version": "1.0.0",
+  "description": "cargo build / check / clippy / test / run / fmt с разбором ошибок, языковой сервер rust-analyzer.",
+  "requires": [{ "command": "cargo", "install": "https://rustup.rs" }],
+  "languageServers": [
+    {
+      "id": "rust",
+      "name": "rust-analyzer",
+      "languages": ["rust"],
+      "command": "rust-analyzer",
+      "install": "rustup component add rust-analyzer"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "cargo.build",
+      "label": "cargo build",
+      "group": "build",
+      "command": "cargo build --message-format=short --color never",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "problemMatcher": "rustc",
+      "when": { "files": ["**/Cargo.toml"] }
+    },
+    {
+      "id": "cargo.check",
+      "label": "cargo check",
+      "group": "check",
+      "command": "cargo check --all-targets --message-format=short --color never",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "problemMatcher": "rustc",
+      "when": { "files": ["**/Cargo.toml"] }
+    },
+    {
+      "id": "cargo.clippy",
+      "label": "cargo clippy",
+      "group": "check",
+      "command": "cargo clippy --all-targets --message-format=short --color never",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "problemMatcher": "rustc",
+      "when": { "files": ["**/Cargo.toml"] }
+    },
+    {
+      "id": "cargo.test",
+      "label": "cargo test",
+      "group": "test",
+      "command": "cargo test --message-format=short --color never",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "problemMatcher": "rustc",
+      "when": { "files": ["**/Cargo.toml"] }
+    },
+    {
+      "id": "cargo.run",
+      "label": "cargo run",
+      "group": "run",
+      "command": "cargo run",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "terminal": true,
+      "when": { "files": ["**/Cargo.toml"] }
+    },
+    {
+      "id": "cargo.fmt",
+      "label": "cargo fmt",
+      "group": "format",
+      "command": "cargo fmt",
+      "cwd": "${findDir:**/Cargo.toml}",
+      "when": { "files": ["**/Cargo.toml"] }
+    }
+  ],
+  "runners": [{ "extensions": [".rs"], "command": "cargo run", "cwd": "${findDir:**/Cargo.toml}" }]
+}

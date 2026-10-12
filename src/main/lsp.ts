@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { basename, sep } from 'path'
 import { pathToFileURL } from 'url'
-import type { LspServerId } from '../shared/types'
+import type { LspServerId, LspSpec } from '../shared/types'
 
 /**
  * Minimal Language Server Protocol host. Servers ship as npm packages and run
@@ -23,7 +23,7 @@ function resolveUnpacked(request: string): string {
   return require.resolve(request).replace(`app.asar${sep}`, `app.asar.unpacked${sep}`)
 }
 
-const SERVERS: Record<LspServerId, ServerDef> = {
+const SERVERS: Record<string, ServerDef> = {
   typescript: {
     name: 'TypeScript',
     script: 'typescript-language-server/lib/cli.mjs',
@@ -139,16 +139,19 @@ interface Running {
 
 const running = new Map<LspServerId, Running>()
 
-function start(id: LspServerId, root: string, getWindow: () => BrowserWindow | null): Running {
+function start(id: LspServerId, root: string, getWindow: () => BrowserWindow | null, spec?: LspSpec): Running {
   const existing = running.get(id)
   if (existing && existing.root === root) return existing
   if (existing) stop(id)
 
   const def = SERVERS[id]
-  const proc = spawn(process.execPath, [resolveUnpacked(def.script), ...def.args], {
-    cwd: root,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-  })
+  // Bundled servers run on Electron's Node; plugin servers are their own executables.
+  const proc = def
+    ? spawn(process.execPath, [resolveUnpacked(def.script), ...def.args], {
+        cwd: root,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+      })
+    : spawn(spec!.command, spec!.args ?? [], { cwd: root, env: process.env, windowsHide: true, shell: process.platform === 'win32' })
   const send = (channel: string, ...args: unknown[]): void => {
     const w = getWindow()
     if (w && !w.isDestroyed()) w.webContents.send(channel, id, ...args)
@@ -185,7 +188,11 @@ function start(id: LspServerId, root: string, getWindow: () => BrowserWindow | n
       send('lsp:exit', code)
     }
   })
-  proc.on('error', () => conn.rejectAll('Language server failed to start'))
+  proc.on('error', (err: NodeJS.ErrnoException) =>
+    conn.rejectAll(err.code === 'ENOENT' ? `${spec?.command ?? 'Сервер'} не найден` : `Language server failed to start: ${err.message}`)
+  )
+  // A missing executable makes the first write fail with EPIPE; don't crash the app on it.
+  proc.stdin.on('error', () => {})
 
   const ready = conn
     .request('initialize', {
@@ -194,7 +201,7 @@ function start(id: LspServerId, root: string, getWindow: () => BrowserWindow | n
       rootUri,
       rootPath: root,
       workspaceFolders: [{ uri: rootUri, name: basename(root) }],
-      initializationOptions: def.initializationOptions?.(),
+      initializationOptions: def ? def.initializationOptions?.() : spec?.initializationOptions,
       capabilities: {
         general: { positionEncodings: ['utf-16'] },
         textDocument: {
@@ -271,9 +278,9 @@ export function stopAllLanguageServers(): void {
 }
 
 export function registerLspHandlers(getWindow: () => BrowserWindow | null): void {
-  ipcMain.handle('lsp:start', (_e, id: LspServerId, root: string) => {
-    if (!SERVERS[id]) throw new Error(`Unknown language server ${id}`)
-    return start(id, root, getWindow).ready
+  ipcMain.handle('lsp:start', (_e, id: LspServerId, root: string, spec?: LspSpec) => {
+    if (!SERVERS[id] && !spec?.command) throw new Error(`Unknown language server ${id}`)
+    return start(id, root, getWindow, spec).ready
   })
   ipcMain.handle('lsp:request', (_e, id: LspServerId, method: string, params: unknown) => {
     const r = running.get(id)

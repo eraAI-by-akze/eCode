@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css'
 import { getState, setState, useStore } from './store'
 import { THEMES } from './themes'
 import { basename } from './lib/path'
+import { fontStack } from './fontService'
 
 const api = window.ecode
 const isMac = api.platform === 'darwin'
@@ -40,12 +41,21 @@ function listen(): void {
   api.onTermExit((id) => closeTerminal(id, false))
   // Follow theme and font changes.
   let prev = getState().settings
+  let prevAuto = getState().autoFont
   useStore.subscribe((s) => {
-    if (s.settings.theme === prev.theme && s.settings.fontSize === prev.fontSize) return
+    if (
+      s.settings.theme === prev.theme &&
+      s.settings.fontSize === prev.fontSize &&
+      s.settings.editorFont === prev.editorFont &&
+      s.autoFont === prevAuto
+    )
+      return
     prev = s.settings
+    prevAuto = s.autoFont
     for (const sess of sessions.values()) {
       sess.term.options.theme = theme()
       sess.term.options.fontSize = fontSize()
+      sess.term.options.fontFamily = fontStack()
       fitSession(sess)
     }
   })
@@ -86,7 +96,7 @@ function fallbackInput(s: Session, data: string): void {
 export async function createTerminal(): Promise<number> {
   listen()
   const term = new Terminal({
-    fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Menlo, Consolas, monospace',
+    fontFamily: fontStack(),
     fontSize: fontSize(),
     lineHeight: 1.25,
     cursorBlink: true,

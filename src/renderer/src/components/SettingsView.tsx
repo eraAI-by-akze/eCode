@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import * as a from '../actions'
 import { THEME_LIST } from '../themes'
+import { FontPicker } from './FontPicker'
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -46,6 +47,9 @@ export function SettingsView() {
         ))}
       </div>
 
+      <div className="section-label">Шрифт редактора и терминала</div>
+      <FontPicker />
+
       <div className="section-label">Редактор</div>
       <div className="setting-row">
         <label>Размер шрифта</label>
@@ -77,9 +81,17 @@ export function SettingsView() {
         <label>Лигатуры шрифта</label>
         <Toggle value={s.fontLigatures} onChange={(v) => a.updateSettings({ fontLigatures: v })} />
       </div>
+      <div className="setting-row">
+        <label>Ошибки прямо в строке (Error Lens)</label>
+        <Toggle value={s.errorLens} onChange={(v) => a.updateSettings({ errorLens: v })} />
+      </div>
+      <div className="setting-row">
+        <label>Анимации интерфейса</label>
+        <Toggle value={s.animations} onChange={(v) => a.updateSettings({ animations: v })} />
+      </div>
 
       <p className="settings-hint">
-        Настройки сохраняются автоматически. Шрифт: JetBrains Mono / Fira Code, если они установлены в системе.
+        Настройки сохраняются автоматически.
       </p>
     </div>
   )

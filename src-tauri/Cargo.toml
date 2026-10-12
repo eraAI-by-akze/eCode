@@ -26,6 +26,8 @@ trash = "5"
 # System TLS (schannel / Security.framework / OpenSSL) instead of rustls+ring.
 ureq = { version = "2", default-features = false, features = ["json", "native-tls"] }
 native-tls = "0.2"
+# Pure-Rust font enumeration for the font picker.
+fontdb = "0.23"
 
 [profile.release]
 codegen-units = 1

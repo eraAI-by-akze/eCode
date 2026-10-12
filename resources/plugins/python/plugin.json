@@ -1,0 +1,73 @@
+{
+  "id": "ecode.python",
+  "name": "Python",
+  "version": "1.0.0",
+  "description": "Запуск, pytest, проверка ruff и mypy с разбором ошибок. Подсказки по коду даёт встроенный Pyright.",
+  "requires": [
+    {
+      "command": "python3",
+      "install": "https://www.python.org/downloads/"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "python.ruff",
+      "label": "ruff check",
+      "group": "check",
+      "command": "ruff check --output-format=concise .",
+      "problemMatcher": "python",
+      "when": {
+        "files": [
+          "**/*.py"
+        ]
+      }
+    },
+    {
+      "id": "python.mypy",
+      "label": "mypy",
+      "group": "check",
+      "command": "mypy --show-column-numbers --no-error-summary --no-color-output .",
+      "problemMatcher": "python",
+      "when": {
+        "files": [
+          "**/*.py"
+        ]
+      }
+    },
+    {
+      "id": "python.pytest",
+      "label": "pytest",
+      "group": "test",
+      "command": "${python} -m pytest -q --tb=short",
+      "problemMatcher": "python",
+      "when": {
+        "files": [
+          "**/*.py"
+        ]
+      }
+    },
+    {
+      "id": "python.run",
+      "label": "Запустить текущий файл",
+      "group": "run",
+      "command": "${python} \"${file}\"",
+      "problemMatcher": "python",
+      "when": {
+        "files": [
+          "**/*.py"
+        ]
+      }
+    },
+    {
+      "id": "python.format",
+      "label": "ruff format",
+      "group": "format",
+      "command": "ruff format .",
+      "when": {
+        "files": [
+          "**/*.py"
+        ]
+      }
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { useStore, setState, getState } from '../store'
 import * as a from '../actions'
 import { focusEditor } from '../editorService'
 import * as scm from '../scm'
+import { useAllDiagnostics } from './Panel'
 import { basename, dirname, relative } from '../lib/path'
 import {
   FileIcon,
@@ -162,6 +163,25 @@ export function Explorer() {
     }
     return { files, dirs }
   }, [git, root])
+  const diagnostics = useAllDiagnostics()
+  const problems = useMemo(() => {
+    const files = new Map<string, { errors: number; warnings: number }>()
+    const dirs = new Map<string, 'error' | 'warning'>()
+    if (!root) return { files, dirs }
+    for (const [path, list] of Object.entries(diagnostics)) {
+      const errors = list.filter((d) => d.severity === 'error').length
+      const warnings = list.filter((d) => d.severity === 'warning').length
+      if (!errors && !warnings) continue
+      files.set(path, { errors, warnings })
+      for (let d = dirname(path); d.startsWith(root) && d !== root; d = dirname(d)) {
+        if (dirs.get(d) !== 'error') dirs.set(d, errors ? 'error' : 'warning')
+        if (dirname(d) === d) break
+      }
+    }
+    return { files, dirs }
+  }, [diagnostics, root])
+  const pulse = useStore((s) => s.expandPulse)
+  const treeMap = useStore((s) => s.tree)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(600)
@@ -299,11 +319,17 @@ export function Explorer() {
               const isSel = selected === entry.path
               const isActive = active === entry.path
               const kind = deco.files.get(entry.path) ?? (entry.isDir && deco.dirs.has(entry.path) ? 'dir' : null)
+              const prob = problems.files.get(entry.path)
+              const dirProb = entry.isDir ? problems.dirs.get(entry.path) : undefined
+              const probClass = prob ? (prob.errors ? 'has-errors' : 'has-warnings') : dirProb ? `dir-${dirProb}s` : ''
+              // Children of a folder that was just expanded slide in, staggered.
+              const entering = pulse && Date.now() - pulse.at < 450 && dirname(entry.path) === pulse.dir
+              const order = entering ? (treeMap[pulse.dir] ?? []).findIndex((e) => e.path === entry.path) : 0
               return (
                 <div
                   key={entry.path}
-                  className={`tree-row ${isSel ? 'selected' : ''} ${isActive ? 'active' : ''} ${dirty.has(entry.path) ? 'dirty' : ''} ${kind ? `deco-${kind}` : ''}`}
-                  style={{ paddingLeft: 10 + depth * 14 }}
+                  className={`tree-row ${isSel ? 'selected' : ''} ${isActive ? 'active' : ''} ${dirty.has(entry.path) ? 'dirty' : ''} ${kind ? `deco-${kind}` : ''} ${probClass} ${entering ? 'row-enter' : ''}`}
+                  style={{ paddingLeft: 10 + depth * 14, animationDelay: entering ? `${Math.min(order, 12) * 18}ms` : undefined }}
                   onClick={() => activate(entry)}
                   onDoubleClick={() => !entry.isDir && focusEditor()}
                   onContextMenu={(e) => {
@@ -329,6 +355,10 @@ export function Explorer() {
                     <FileIcon name={entry.name} />
                   )}
                   <span className="tree-label">{entry.name}</span>
+                  {prob && (
+                    <span className={`problem-count ${prob.errors ? 'err' : 'warn'}`}>{prob.errors || prob.warnings}</span>
+                  )}
+                  {dirProb && !prob && <span className={`problem-dot ${dirProb}`} />}
                   {dirty.has(entry.path) ? (
                     <span className="dirty-dot" />
                   ) : kind && kind !== 'dir' ? (
