@@ -90,7 +90,9 @@ kbd {
   position: relative;
   overflow: clip;
   display: grid;
-  grid-template-rows: var(--titlebar-h) 1fr var(--statusbar-h);
+  /* minmax(0, …): long unbreakable content (problems, paths) must not widen the window. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--titlebar-h) minmax(0, 1fr) var(--statusbar-h);
   height: 100%;
   opacity: 0;
   transition: opacity 0.25s var(--ease);
