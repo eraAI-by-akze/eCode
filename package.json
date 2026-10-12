@@ -8,27 +8,105 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "package:mac": "pnpm build && electron-builder --mac",
     "package:win": "pnpm build && electron-builder --win",
-    "package:linux": "pnpm build && electron-builder --linux"
+    "package:linux": "pnpm build && electron-builder --linux",
+    "dev:tauri-web": "vite --config vite.tauri.config.ts",
+    "build:tauri-web": "vite build --config vite.tauri.config.ts",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "electron-updater": "^6.1.0",
-    "liquid-glass-react": "^1.1.1"
+    "node-pty": "1.1.0",
+    "pyright": "1.1.390",
+    "typescript": "5.9.3",
+    "typescript-language-server": "4.3.3"
   },
   "devDependencies": {
+    "@tauri-apps/api": "^2.12.3",
+    "@tauri-apps/cli": "^2.12.2",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
+    "@tauri-apps/plugin-opener": "^2.7.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/addon-web-links": "0.11.0",
+    "@xterm/xterm": "5.5.0",
     "electron": "^30.0.0",
     "electron-builder": "^24.0.0",
     "electron-vite": "^2.0.0",
     "monaco-editor": "^0.50.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "typescript": "^5.4.0",
     "vite": "^5.0.0",
     "zustand": "^4.5.0"
-  }
+  },
+  "author": {
+    "name": "eraAI",
+    "email": "noreply@eraai.local"
+  },
+  "build": {
+    "appId": "com.eraai.ecode",
+    "productName": "eCode",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "maintainer": "eraAI <noreply@eraai.local>"
+    },
+    "asarUnpack": [
+      "**/node_modules/node-pty/**",
+      "**/node_modules/pyright/**",
+      "**/node_modules/typescript-language-server/**",
+      "**/node_modules/typescript/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/era",
+        "to": "era"
+      }
+    ],
+    "npmRebuild": false
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "node-pty"
+    ]
+  },
+  "packageManager": "pnpm@10.28.0",
+  "homepage": "https://github.com/eraAI-by-akze/eCode"
 }
