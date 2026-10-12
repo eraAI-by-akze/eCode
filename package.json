@@ -77,6 +77,12 @@
       "**/node_modules/pyright/**",
       "**/node_modules/typescript-language-server/**",
       "**/node_modules/typescript/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/era",
+        "to": "era"
+      }
     ]
   },
   "pnpm": {

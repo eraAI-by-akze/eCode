@@ -46,6 +46,34 @@ const providers = new Map<LspServerId, monaco.IDisposable[]>()
 const restarts = new Map<LspServerId, number>()
 
 let loadModel: (path: string) => Promise<void> = async () => {}
+
+/**
+ * Read-only models for definition targets that aren't open, so Ctrl+hover
+ * previews can show them. editorService adopts/drops them when the file opens.
+ */
+const shadows = new Map<string, Model>()
+const MAX_SHADOWS = 30
+
+async function ensureShadowModel(uri: monaco.Uri): Promise<void> {
+  if (uri.scheme !== 'file' || monaco.editor.getModel(uri)) return
+  const r = await api.readFile(uri.fsPath)
+  if (r.content === undefined || monaco.editor.getModel(uri)) return
+  shadows.set(uri.toString(), monaco.editor.createModel(r.content, undefined, uri))
+  if (shadows.size > MAX_SHADOWS) {
+    const [oldest, model] = shadows.entries().next().value as [string, Model]
+    shadows.delete(oldest)
+    model.dispose()
+  }
+}
+
+/** Called before the editor creates a real model for this URI. */
+export function dropShadowModel(uri: monaco.Uri): void {
+  const key = uri.toString()
+  const m = shadows.get(key)
+  if (!m) return
+  shadows.delete(key)
+  m.dispose()
+}
 let notify: (message: string, kind: 'info' | 'error') => void = () => {}
 
 // ─────────────────────────── conversions ───────────────────────────
@@ -378,7 +406,7 @@ function registerProviders(id: LspServerId): void {
               position: toPos(position)
             })
             if (!r) return null
-            return (Array.isArray(r) ? r : [r]).map((loc: any) =>
+            const locations: monaco.languages.Location[] = (Array.isArray(r) ? r : [r]).map((loc: any) =>
               loc.targetUri
                 ? {
                     uri: monaco.Uri.parse(loc.targetUri),
@@ -386,6 +414,8 @@ function registerProviders(id: LspServerId): void {
                   }
                 : { uri: monaco.Uri.parse(loc.uri), range: fromRange(loc.range) }
             )
+            await Promise.all(locations.slice(0, 5).map((l) => ensureShadowModel(l.uri)))
+            return locations
           }
         })
       )

@@ -5,6 +5,7 @@ import { registerTerminalHandlers, killAllTerminals } from './terminal'
 import { registerSettingsHandlers, flushSettings } from './settings'
 import { registerLspHandlers, stopAllLanguageServers } from './lsp'
 import { registerGitHandlers } from './git'
+import { registerEraHandlers, stopEra } from './era'
 
 const isMac = process.platform === 'darwin'
 
@@ -173,6 +174,7 @@ app.whenReady().then(() => {
   registerTerminalHandlers()
   registerLspHandlers(() => mainWindow)
   registerGitHandlers()
+  registerEraHandlers(() => mainWindow)
   registerSettingsHandlers()
   createWindow()
 
@@ -190,6 +192,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   killAllTerminals()
   stopAllLanguageServers()
+  stopEra()
   flushSettings()
 })
 

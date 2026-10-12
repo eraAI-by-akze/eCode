@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS, type DirEntry, type GitStatus, type LspServerId, type Settings } from '@shared/types'
 
-export type SidebarView = 'explorer' | 'search' | 'scm' | 'settings'
+export type SidebarView = 'explorer' | 'search' | 'scm' | 'ai' | 'settings'
 
 export interface Tab {
   path: string
@@ -31,6 +31,37 @@ export interface Diagnostic {
 export interface LspStatus {
   state: 'starting' | 'ready' | 'error'
   message?: string
+}
+
+export type AiToolStatus = 'running' | 'pending' | 'applied' | 'rejected' | 'done' | 'error'
+
+export interface AiToolCard {
+  callId: string
+  name: string
+  args: Record<string, unknown>
+  status: AiToolStatus
+  /** One line for the card header, e.g. "Прочитан src/app.py (1–40)". */
+  summary: string
+  /** For edits: the lines being replaced and their replacement. */
+  preview?: { path: string; startLine: number; oldLines: string[]; newLines: string[]; isNew: boolean }
+  result?: string
+}
+
+export type AiPart = { kind: 'text'; text: string } | { kind: 'tool'; card: AiToolCard }
+
+export interface AiMessage {
+  id: string
+  role: 'user' | 'assistant'
+  parts: AiPart[]
+  error?: string
+}
+
+export interface AiStatus {
+  state: 'idle' | 'starting' | 'loading' | 'ready' | 'missing' | 'error'
+  message?: string
+  eracore?: string
+  python?: string
+  pythonPath?: string
 }
 
 export interface Toast {
@@ -79,6 +110,10 @@ export interface State {
   git: GitStatus | null
   gitBusy: string | null
   commitMessage: string
+  ai: AiStatus
+  aiMessages: AiMessage[]
+  aiBusy: string | null
+  aiDraft: string
   palette: PaletteState
   cursor: { line: number; column: number; selected: number }
   language: string
@@ -109,6 +144,10 @@ export const useStore = create<State>(() => ({
   git: null,
   gitBusy: null,
   commitMessage: '',
+  ai: { state: 'idle' },
+  aiMessages: [],
+  aiBusy: null,
+  aiDraft: '',
   palette: null,
   cursor: { line: 1, column: 1, selected: 0 },
   language: 'plaintext',

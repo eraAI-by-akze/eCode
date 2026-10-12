@@ -89,6 +89,7 @@ export function mountEditor(el: HTMLElement): () => void {
     editor.onDidChangeCursorSelection(syncStatus),
     editor.onDidChangeModel(syncStatus)
   ]
+  for (const a of extraActions) editor.addAction(a)
   if (shownPath && models.has(shownPath)) show(shownPath, false)
   return () => {
     subs.forEach((s) => s.dispose())
@@ -158,6 +159,78 @@ export function setDiff(key: string, file: string, original: string, modified: s
   })
 }
 
+/** Selected text in the main editor (null when the selection is empty). */
+export function getSelectionInfo(): { text: string; startLine: number; endLine: number } | null {
+  const model = editor?.getModel()
+  const sel = editor?.getSelection()
+  if (!model || !sel || sel.isEmpty()) return null
+  return { text: model.getValueInRange(sel), startLine: sel.startLineNumber, endLine: sel.endLineNumber }
+}
+
+const extraActions: monaco.editor.IActionDescriptor[] = []
+
+/** Add an entry to the editor's right-click menu (kept across remounts). */
+export function addEditorAction(id: string, label: string, run: () => void, order: number): void {
+  const action = { id, label, contextMenuGroupId: '0_eraai', contextMenuOrder: order, run }
+  extraActions.push(action)
+  editor?.addAction(action)
+}
+
+/**
+ * Replace a model's text with `next` as one undoable edit that only touches
+ * the lines that actually differ, so cursors and scroll stay put.
+ * Returns the 1-based changed line range in the new text.
+ */
+export function applyText(path: string, next: string): { startLine: number; endLine: number } | null {
+  const model = models.get(path)
+  if (!model) return null
+  const eol = model.getEOL()
+  const oldLines = model.getLinesContent()
+  const newLines = next.split(/\r?\n/)
+  let prefix = 0
+  while (prefix < oldLines.length && prefix < newLines.length && oldLines[prefix] === newLines[prefix]) prefix++
+  let suffix = 0
+  while (
+    suffix < oldLines.length - prefix &&
+    suffix < newLines.length - prefix &&
+    oldLines[oldLines.length - 1 - suffix] === newLines[newLines.length - 1 - suffix]
+  )
+    suffix++
+  if (prefix === oldLines.length && prefix === newLines.length) return { startLine: 1, endLine: 1 }
+  // Replace whole lines [prefix, oldLen - suffix) including their line breaks.
+  const oldEnd = oldLines.length - suffix
+  const middle = newLines.slice(prefix, newLines.length - suffix).join(eol)
+  let range: monaco.Range
+  let text: string
+  if (oldEnd < oldLines.length) {
+    range = new monaco.Range(prefix + 1, 1, oldEnd + 1, 1)
+    text = prefix < newLines.length - suffix ? middle + eol : ''
+  } else if (prefix > 0) {
+    // Change reaches the end of the file: start from the end of the previous line.
+    range = new monaco.Range(prefix, oldLines[prefix - 1].length + 1, oldLines.length, oldLines[oldLines.length - 1].length + 1)
+    text = prefix < newLines.length - suffix ? eol + middle : ''
+  } else {
+    range = model.getFullModelRange()
+    text = middle
+  }
+  model.pushStackElement()
+  model.pushEditOperations([], [{ range, text }], () => null)
+  model.pushStackElement()
+  const added = newLines.length - suffix - prefix
+  return { startLine: prefix + 1, endLine: prefix + Math.max(1, added) }
+}
+
+/** Briefly highlight lines that an AI edit changed, if that file is on screen. */
+export function flashLines(path: string, startLine: number, endLine: number): void {
+  if (!editor || shownPath !== path) return
+  const ids = editor.deltaDecorations(
+    [],
+    [{ range: new monaco.Range(startLine, 1, endLine, 1), options: { isWholeLine: true, className: 'ai-flash' } }]
+  )
+  editor.revealLinesInCenterIfOutsideViewport(startLine, endLine, monaco.editor.ScrollType.Smooth)
+  setTimeout(() => editor?.deltaDecorations(ids, []), 1600)
+}
+
 export function allModels(): [string, Model][] {
   return [...models.entries()]
 }
@@ -176,7 +249,9 @@ export function hasModel(path: string): boolean {
 export function createModel(path: string, content: string, language?: string): Model {
   const existing = models.get(path)
   if (existing) return existing
-  const model = monaco.editor.createModel(content, language, uriFor(path))
+  const uri = uriFor(path)
+  lsp.dropShadowModel(uri)
+  const model = monaco.editor.createModel(content, language, uri)
   model.updateOptions({ tabSize: getState().settings.tabSize })
   models.set(path, model)
   savedVersions.set(path, model.getAlternativeVersionId())

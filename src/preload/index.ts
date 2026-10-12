@@ -65,6 +65,14 @@ const api: EcodeApi = {
   gitCheckout: (repo, ref, create) => ipcRenderer.invoke('git:checkout', repo, ref, create),
   gitSync: (repo, op) => ipcRenderer.invoke('git:sync', repo, op),
 
+  eraDetect: (pythonPath) => ipcRenderer.invoke('era:detect', pythonPath),
+  eraStart: (pythonPath) => ipcRenderer.invoke('era:start', pythonPath),
+  eraSend: (msg) => ipcRenderer.send('era:send', msg),
+  eraStop: () => ipcRenderer.invoke('era:stop'),
+  eraListModels: (url) => ipcRenderer.invoke('era:listModels', url),
+  eraPickModelFile: () => ipcRenderer.invoke('era:pickModelFile'),
+  onEraEvent: (cb) => subscribe('era:event', cb),
+
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (patch) => ipcRenderer.send('settings:save', patch)
 }

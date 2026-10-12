@@ -2,6 +2,7 @@ import * as a from './actions'
 import * as ed from './editorService'
 import * as scm from './scm'
 import * as term from './terminalService'
+import * as era from './eraService'
 import { getState } from './store'
 import { extname, isUntitled } from './lib/path'
 
@@ -110,6 +111,12 @@ export const COMMANDS: Command[] = [
   { id: 'gitFetch', label: 'Git: fetch', run: () => scm.sync('fetch'), when: hasRepo },
   { id: 'gitBranch', label: 'Git: сменить ветку…', run: () => scm.pickBranch(), when: hasRepo },
   { id: 'gitInit', label: 'Git: инициализировать репозиторий', run: () => scm.initRepo(), when: () => hasRoot() && !hasRepo() },
+  { id: 'aiChat', label: 'eraAI: открыть чат', keys: ['mod+shift+a'], run: () => a.focusSidebar('ai'), global: true },
+  { id: 'aiDeploy', label: 'eraAI: развернуть модель', run: () => void era.deploy() },
+  { id: 'aiExplain', label: 'eraAI: объяснить выделенное', run: () => era.askAboutSelection('explain'), when: hasRealFile },
+  { id: 'aiFix', label: 'eraAI: исправить выделенное', run: () => era.askAboutSelection('fix'), when: hasRealFile },
+  { id: 'aiDocs', label: 'eraAI: добавить документацию', run: () => era.askAboutSelection('docs'), when: hasRealFile },
+  { id: 'aiStop', label: 'eraAI: остановить генерацию', run: () => era.stop(), when: () => !!getState().aiBusy },
   { id: 'restartLsp', label: 'Перезапустить языковые серверы', run: () => a.restartLanguageServers(), when: hasRoot },
   { id: 'goToDefinition', label: 'Перейти к определению', run: () => ed.runEditorAction('editor.action.revealDefinition'), when: hasRealFile },
   { id: 'renameSymbol', label: 'Переименовать символ', run: () => ed.runEditorAction('editor.action.rename'), when: hasRealFile },

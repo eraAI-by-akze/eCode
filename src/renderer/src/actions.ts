@@ -1,8 +1,9 @@
-import type { Settings } from '@shared/types'
+import { DEFAULT_ERA, type Settings } from '@shared/types'
 import * as ed from './editorService'
 import * as lsp from './lspClient'
 import { monaco } from './monaco'
 import { refreshGit } from './scm'
+import { askAboutSelection } from './eraService'
 import { getState, setState, useStore, type PickItem, type SidebarView } from './store'
 import { THEMES, THEME_LIST, applyThemeVars } from './themes'
 import { basename, dirname, isInside, isUntitled } from './lib/path'
@@ -56,10 +57,15 @@ function syncDirtyFlag(): void {
 }
 
 export async function init(): Promise<void> {
-  const settings = await api.loadSettings()
+  const loaded = await api.loadSettings()
+  const settings = { ...loaded, era: { ...DEFAULT_ERA, ...loaded.era } }
   setState({ settings })
   applyThemeVars(THEMES[settings.theme] ?? THEMES['era-glass'])
   ed.applyEditorOptions()
+
+  ed.addEditorAction('eraai.explain', 'eraAI: объяснить', () => askAboutSelection('explain'), 1)
+  ed.addEditorAction('eraai.fix', 'eraAI: исправить', () => askAboutSelection('fix'), 2)
+  ed.addEditorAction('eraai.docs', 'eraAI: документировать', () => askAboutSelection('docs'), 3)
 
   api.onMaximizedChange((maximized) => setState({ maximized }))
   api.onFsChange(onFsChange)

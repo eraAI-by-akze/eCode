@@ -1,7 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { dirname, join } from 'path'
-import { DEFAULT_SETTINGS, type Settings } from '../shared/types'
+import { DEFAULT_ERA, DEFAULT_SETTINGS, type Settings } from '../shared/types'
 
 let settings: Settings | null = null
 let saveTimer: NodeJS.Timeout | null = null
@@ -11,7 +11,8 @@ const file = (): string => join(app.getPath('userData'), 'settings.json')
 function load(): Settings {
   if (settings) return settings
   try {
-    settings = { ...DEFAULT_SETTINGS, ...JSON.parse(readFileSync(file(), 'utf8')) }
+    const saved = JSON.parse(readFileSync(file(), 'utf8'))
+    settings = { ...DEFAULT_SETTINGS, ...saved, era: { ...DEFAULT_ERA, ...saved.era } }
   } catch {
     settings = { ...DEFAULT_SETTINGS }
   }

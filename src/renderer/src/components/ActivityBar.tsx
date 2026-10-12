@@ -1,18 +1,21 @@
 import { useStore, type SidebarView } from '../store'
 import * as a from '../actions'
 import { formatKeys } from '../commands'
-import { IconFiles, IconGit, IconPalette, IconSearch, IconSettings, IconTerminal } from './Icons'
+import { IconFiles, IconGit, IconPalette, IconSearch, IconSettings, IconSparkle, IconTerminal } from './Icons'
 
 const ITEMS: { view: SidebarView; title: string; keys: string; Icon: typeof IconFiles }[] = [
   { view: 'explorer', title: 'Проводник', keys: 'mod+shift+e', Icon: IconFiles },
   { view: 'search', title: 'Поиск', keys: 'mod+shift+f', Icon: IconSearch },
-  { view: 'scm', title: 'Git', keys: 'ctrl+shift+g', Icon: IconGit }
+  { view: 'scm', title: 'Git', keys: 'ctrl+shift+g', Icon: IconGit },
+  { view: 'ai', title: 'eraAI', keys: 'mod+shift+a', Icon: IconSparkle }
 ]
 
 export function ActivityBar() {
   const sidebar = useStore((s) => s.sidebar)
   const panelOpen = useStore((s) => s.panelOpen)
   const changes = useStore((s) => s.git?.files.length ?? 0)
+  const aiState = useStore((s) => s.ai.state)
+  const aiBusy = useStore((s) => !!s.aiBusy)
 
   return (
     <aside className="activitybar">
@@ -25,6 +28,7 @@ export function ActivityBar() {
         >
           <Icon size={22} />
           {view === 'scm' && changes > 0 && <span className="ab-badge">{changes > 99 ? '99+' : changes}</span>}
+          {view === 'ai' && aiState === 'ready' && <span className={`ab-live ${aiBusy ? 'busy' : ''}`} />}
         </button>
       ))}
       <button

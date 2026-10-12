@@ -38,6 +38,48 @@ export interface SearchResult {
   error?: string
 }
 
+export type EraBackend = 'ollama' | 'openai' | 'gguf' | 'mock'
+
+export interface EraSettings {
+  /** Empty: auto-detect python3/python/py. */
+  pythonPath: string
+  backend: EraBackend
+  url: string
+  model: string
+  ggufPath: string
+  apiKey: string
+  temperature: number
+  maxTokens: number
+  /** Apply file edits without asking. */
+  autoApply: boolean
+}
+
+export const DEFAULT_ERA: EraSettings = {
+  pythonPath: '',
+  backend: 'ollama',
+  url: 'http://localhost:11434/v1',
+  model: 'qwen2.5-coder:7b',
+  ggufPath: '',
+  apiKey: '',
+  temperature: 0.2,
+  maxTokens: 2048,
+  autoApply: false
+}
+
+export interface PythonInfo {
+  path: string
+  version: string
+  eracore: boolean
+}
+
+export interface EraHello {
+  type: 'hello'
+  eracore: string | null
+  python: string
+  error: string | null
+  pythonPath?: string
+}
+
 export type ThemeId = 'era-glass' | 'graphite' | 'aurora-light'
 
 export interface Settings {
@@ -48,11 +90,14 @@ export interface Settings {
   minimap: boolean
   fontLigatures: boolean
   sidebarWidth: number
+  /** The eraAI chat wants more room than the file tree. */
+  aiPanelWidth: number
   panelHeight: number
   lastFolder: string | null
   recent: string[]
   openFiles: string[]
   activeFile: string | null
+  era: EraSettings
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -63,11 +108,13 @@ export const DEFAULT_SETTINGS: Settings = {
   minimap: true,
   fontLigatures: true,
   sidebarWidth: 260,
+  aiPanelWidth: 380,
   panelHeight: 240,
   lastFolder: null,
   recent: [],
   openFiles: [],
-  activeFile: null
+  activeFile: null,
+  era: DEFAULT_ERA
 }
 
 export interface TermInfo {
@@ -176,6 +223,14 @@ export interface EcodeApi {
   gitBranches(repo: string): Promise<GitBranches>
   gitCheckout(repo: string, ref: string, create: boolean): Promise<void>
   gitSync(repo: string, op: GitSyncOp): Promise<string>
+  // eraAI (eraCore bridge)
+  eraDetect(pythonPath: string): Promise<PythonInfo | null>
+  eraStart(pythonPath: string): Promise<EraHello>
+  eraSend(msg: unknown): void
+  eraStop(): Promise<void>
+  eraListModels(url: string): Promise<string[]>
+  eraPickModelFile(): Promise<string | null>
+  onEraEvent(cb: (msg: Record<string, unknown>) => void): () => void
   // settings
   loadSettings(): Promise<Settings>
   saveSettings(patch: Partial<Settings>): void

@@ -72,15 +72,16 @@ export function App() {
   const sidebar = useStore((s) => s.sidebar)
   const panelOpen = useStore((s) => s.panelOpen)
   const settings = useStore((s) => s.settings)
-  const [sidebarWidth, setSidebarWidth] = useState(settings.sidebarWidth)
+  const widthKey = sidebar === 'ai' ? 'aiPanelWidth' : 'sidebarWidth'
+  const [sidebarWidth, setSidebarWidth] = useState(settings[widthKey])
   const [panelHeight, setPanelHeight] = useState(settings.panelHeight)
   const [panelMounted, setPanelMounted] = useState(false)
   const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
-    setSidebarWidth(settings.sidebarWidth)
+    setSidebarWidth(settings[widthKey])
     setPanelHeight(settings.panelHeight)
-  }, [settings.sidebarWidth, settings.panelHeight])
+  }, [settings, widthKey])
 
   useEffect(() => {
     if (panelOpen) setPanelMounted(true)
@@ -144,7 +145,7 @@ export function App() {
               max={640}
               onChange={(v, done) => {
                 setSidebarWidth(v)
-                if (done) a.updateSettings({ sidebarWidth: v })
+                if (done) a.updateSettings({ [widthKey]: v })
               }}
             />
           </>
