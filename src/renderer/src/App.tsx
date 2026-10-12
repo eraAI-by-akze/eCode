@@ -54,6 +54,18 @@ function Resizer({
   )
 }
 
+async function openDropped(paths: string[]): Promise<void> {
+  for (const p of paths) {
+    if (!p) continue
+    const st = await api.stat(p)
+    if (st?.isDir) {
+      await a.openFolder(p)
+      break
+    }
+    if (st) await a.openFile(p)
+  }
+}
+
 function Toasts() {
   const toasts = useStore((s) => s.toasts)
   return (
@@ -87,6 +99,9 @@ export function App() {
     if (panelOpen) setPanelMounted(true)
   }, [panelOpen])
 
+  // Tauri delivers dropped files through its own event instead of DOM paths.
+  useEffect(() => api.onFileDrop?.((paths) => void openDropped(paths)), [])
+
   // Global shortcuts run in the capture phase so they win over Monaco.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -117,16 +132,7 @@ export function App() {
         if (!e.dataTransfer.files.length) return
         e.preventDefault()
         setDragOver(false)
-        for (const file of Array.from(e.dataTransfer.files)) {
-          const p = api.getPathForFile(file)
-          if (!p) continue
-          const st = await api.stat(p)
-          if (st?.isDir) {
-            await a.openFolder(p)
-            break
-          }
-          if (st) await a.openFile(p)
-        }
+        await openDropped(Array.from(e.dataTransfer.files).map((f) => api.getPathForFile(f)))
       }}
     >
       <div className="backdrop" />

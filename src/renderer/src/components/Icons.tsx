@@ -1,4 +1,5 @@
-import type { ReactNode, SVGProps } from 'react'
+import type { HTMLAttributes, ReactNode, SVGProps } from 'react'
+import logoUrl from '../assets/era-logo.svg'
 import { extname } from '../lib/path'
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number }
@@ -234,10 +235,19 @@ export function FileIcon({ name, size = 16 }: { name: string; size?: number }) {
   )
 }
 
-export function Logo({ size = 22 }: { size?: number }) {
+/**
+ * The eraAI mark (assets/era-logo.svg, from eraai-web). The SVG is used as a
+ * mask, so its colour is whatever `--logo-color` paints: white on dark themes,
+ * inverted on light ones, and any solid colour or gradient on top.
+ */
+export function Logo({ size = 22, className = '', style, ...rest }: { size?: number } & HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className="logo" style={{ width: size, height: size, fontSize: size * 0.62 }}>
-      e
-    </span>
+    <span
+      role="img"
+      aria-label="eCode"
+      className={`logo ${className}`}
+      style={{ width: size, height: size, ['--logo-mask' as string]: `url("${logoUrl}")`, ...style }}
+      {...rest}
+    />
   )
 }

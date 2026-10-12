@@ -12,6 +12,7 @@ let editor: monaco.editor.IStandaloneCodeEditor | null = null
 let diffEditor: monaco.editor.IStandaloneDiffEditor | null = null
 const diffs = new Map<string, { original: Model; modified: Model }>()
 let diffInline = false
+let revealPending = false
 let shownPath: string | null = null
 
 const FONT_FAMILY =
@@ -113,7 +114,14 @@ export function mountDiffEditor(el: HTMLElement): () => void {
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false }
   })
   if (shownPath && diffs.has(shownPath)) diffEditor.setModel(diffs.get(shownPath)!)
+  // Jump to the first change once the diff for a newly shown tab is computed.
+  const sub = diffEditor.onDidUpdateDiff(() => {
+    if (!revealPending) return
+    revealPending = false
+    diffEditor?.revealFirstDiff()
+  })
   return () => {
+    sub.dispose()
     diffEditor?.setModel(null)
     diffEditor?.dispose()
     diffEditor = null
@@ -271,6 +279,7 @@ export function show(path: string | null, focus = true): void {
   const diff = path ? diffs.get(path) : undefined
   if (diff) {
     editor?.setModel(null)
+    revealPending = true
     diffEditor?.setModel(diff)
     setState({ language: diff.modified.getLanguageId(), cursor: { line: 1, column: 1, selected: 0 } })
     return

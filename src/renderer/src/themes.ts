@@ -125,6 +125,7 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     terminal: { ...DARK_ANSI, foreground: '#e9e7f5', cursor: '#22d3ee', selectionBackground: '#8b5cf655' },
     vars: {
       '--bg': '#0b0a12',
+      '--logo-color': '#ffffff',
       '--bg-glow-1': 'rgba(124, 92, 255, 0.28)',
       '--bg-glow-2': 'rgba(34, 211, 238, 0.16)',
       '--surface': 'rgba(22, 19, 36, 0.62)',
@@ -219,6 +220,7 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     },
     vars: {
       '--bg': '#121212',
+      '--logo-color': '#ffffff',
       '--bg-glow-1': 'rgba(245, 165, 36, 0.06)',
       '--bg-glow-2': 'rgba(255, 107, 53, 0.04)',
       '--surface': '#171717',
@@ -305,6 +307,8 @@ export const THEMES: Record<ThemeId, AppTheme> = {
     terminal: { ...LIGHT_ANSI, foreground: '#1e1b33', cursor: '#6d5dfc', selectionBackground: '#6d5dfc33' },
     vars: {
       '--bg': '#f4f3fa',
+      // Light theme: the white mark is inverted.
+      '--logo-color': '#0b0a12',
       '--bg-glow-1': 'rgba(129, 140, 248, 0.30)',
       '--bg-glow-2': 'rgba(236, 72, 153, 0.18)',
       '--surface': 'rgba(255, 255, 255, 0.62)',

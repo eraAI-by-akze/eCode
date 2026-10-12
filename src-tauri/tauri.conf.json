@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "eCode",
+  "version": "0.1.0",
+  "identifier": "com.eraai.ecode",
+  "build": {
+    "beforeDevCommand": "pnpm dev:tauri-web",
+    "devUrl": "http://localhost:5174",
+    "beforeBuildCommand": "pnpm build:tauri-web",
+    "frontendDist": "../out/tauri"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "eCode — For humans and comfort",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "resources": {
+      "../resources/era/bridge.py": "era/bridge.py",
+      "../node_modules/pyright/": "node_modules/pyright/",
+      "../node_modules/typescript-language-server/": "node_modules/typescript-language-server/",
+      "../node_modules/typescript/": "node_modules/typescript/"
+    }
+  }
+}

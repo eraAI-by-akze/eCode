@@ -211,23 +211,17 @@ body.resizing-y .resizer-y::after {
 }
 
 .logo {
-  display: inline-grid;
-  place-items: center;
+  display: inline-block;
   flex: none;
-  border-radius: 30%;
-  font-weight: 800;
-  font-family: var(--ui-font);
-  color: var(--accent-contrast);
-  background: var(--accent-gradient);
-  box-shadow: 0 4px 18px -4px var(--accent);
-  line-height: 1;
-  padding-bottom: 0.08em;
+  background: var(--logo-color);
+  -webkit-mask: var(--logo-mask) center / contain no-repeat;
+  mask: var(--logo-mask) center / contain no-repeat;
+  transition: background 0.3s var(--ease), transform 0.3s var(--ease);
 }
-
-.titlebar-brand {
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-size: 13.5px;
+/* Colours can be laid over the white mark: the accent gradient on hover. */
+.titlebar-logo:hover {
+  background: var(--accent-gradient);
+  transform: rotate(-18deg);
 }
 
 .titlebar-menu {
@@ -1116,8 +1110,8 @@ body.resizing-y .resizer-y::after {
   text-align: center;
 }
 .welcome-hero .logo {
-  border-radius: 22px;
-  box-shadow: 0 18px 60px -12px var(--accent);
+  background: var(--accent-gradient);
+  filter: drop-shadow(0 12px 32px color-mix(in srgb, var(--accent) 55%, transparent));
   animation: float 6s ease-in-out infinite;
 }
 @keyframes float {
@@ -2399,4 +2393,52 @@ button.sb-item:hover {
 .monaco-editor .ai-flash {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   transition: background 0.6s;
+}
+
+/* ───────────────────────── DOM context menu (Tauri) ───────────────────────── */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 500;
+  min-width: 200px;
+  padding: 5px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--elevated);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: var(--shadow);
+  animation: pop 0.1s var(--ease);
+  user-select: none;
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.ctx-item:hover:not(:disabled),
+.ctx-item:focus-visible {
+  outline: none;
+  background: var(--active);
+}
+.ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-item kbd {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
 }

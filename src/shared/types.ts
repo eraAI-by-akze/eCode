@@ -169,6 +169,7 @@ export interface ContextMenuItem {
 export interface EcodeApi {
   platform: NodeJS.Platform
   pathSep: string
+  runtime: 'electron' | 'tauri'
   // window
   minimize(): void
   toggleMaximize(): void
@@ -198,6 +199,8 @@ export interface EcodeApi {
   watch(root: string | null): void
   onFsChange(cb: (paths: string[]) => void): () => void
   getPathForFile(file: File): string
+  /** Runtimes that don't expose paths on DOM drops report dropped files here. */
+  onFileDrop?(cb: (paths: string[]) => void): () => void
   // terminal
   termCreate(cwd: string | null, cols: number, rows: number): Promise<TermInfo>
   termWrite(id: number, data: string): void

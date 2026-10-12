@@ -14,10 +14,14 @@ export function TitleBar() {
   const panelOpen = useStore((s) => s.panelOpen)
 
   return (
-    <header className={`titlebar ${isMac ? 'is-mac' : ''}`} onDoubleClick={isMac ? undefined : () => api.toggleMaximize()}>
-      <div className="titlebar-left">
-        <Logo />
-        <span className="titlebar-brand">eCode</span>
+    <header
+      className={`titlebar ${isMac ? 'is-mac' : ''}`}
+      // Tauri drags (and double-click maximizes) via this attribute; Electron uses -webkit-app-region.
+      data-tauri-drag-region
+      onDoubleClick={isMac || api.runtime === 'tauri' ? undefined : () => api.toggleMaximize()}
+    >
+      <div className="titlebar-left" data-tauri-drag-region>
+        <Logo size={22} className="titlebar-logo" data-tauri-drag-region title="eCode" />
         <nav className="titlebar-menu">
           <button onClick={() => a.openFolder()}>Открыть</button>
           <button onClick={() => a.beginCreate('newFile')}>Новый</button>
@@ -31,7 +35,7 @@ export function TitleBar() {
         <kbd>{formatKeys(['mod+p'])}</kbd>
       </button>
 
-      <div className="titlebar-right">
+      <div className="titlebar-right" data-tauri-drag-region>
         <button
           className={`tb-toggle ${sidebar ? 'on' : ''}`}
           title="Боковая панель"

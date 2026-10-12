@@ -10,6 +10,7 @@ function subscribe<A extends unknown[]>(channel: string, cb: (...args: A) => voi
 const api: EcodeApi = {
   platform: process.platform,
   pathSep: process.platform === 'win32' ? '\\' : '/',
+  runtime: 'electron',
 
   minimize: () => ipcRenderer.send('win:minimize'),
   toggleMaximize: () => ipcRenderer.send('win:toggleMaximize'),

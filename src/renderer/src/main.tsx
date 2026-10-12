@@ -1,3 +1,4 @@
+import './platform/install'
 import { createRoot } from 'react-dom/client'
 import './styles/app.css'
 import { App } from './App'
