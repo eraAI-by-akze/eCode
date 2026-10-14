@@ -80,7 +80,8 @@ export interface EraHello {
   pythonPath?: string
 }
 
-export type ThemeId = 'era-glass' | 'graphite' | 'aurora-light'
+/** Built-in ids, or `ext:<extension>/<theme>` for themes from VS Code extensions. */
+export type ThemeId = string
 
 export interface Settings {
   theme: ThemeId
@@ -104,6 +105,12 @@ export interface Settings {
   errorLens: boolean
   animations: boolean
   disabledPlugins: string[]
+  /** Extension ids (publisher.name) switched off. */
+  disabledExtensions: string[]
+  /** `<extension>/<icon theme id>`, or '' for eCode's own icons. */
+  iconTheme: string
+  /** Open VSX compatible registry (VSCodium's marketplace). */
+  extensionGallery: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -124,7 +131,10 @@ export const DEFAULT_SETTINGS: Settings = {
   editorFont: '',
   errorLens: true,
   animations: true,
-  disabledPlugins: []
+  disabledPlugins: [],
+  disabledExtensions: [],
+  iconTheme: '',
+  extensionGallery: 'https://open-vsx.org'
 }
 
 export interface TermInfo {
@@ -186,6 +196,47 @@ export interface PluginRunner {
   cwd?: string
 }
 
+/** An installed VS Code / VSCodium extension folder (~/.ecode/extensions/<id>-<version>). */
+export interface ExtensionFolder {
+  dir: string
+  /** package.json */
+  manifest?: Record<string, unknown>
+  /** package.nls.json merged with the localized package.nls.<locale>.json. */
+  nls?: Record<string, string>
+  error?: string
+}
+
+/** How to start a debug adapter (always stdio). */
+export interface DapAdapterSpec {
+  command: string
+  args?: string[]
+  cwd?: string
+  env?: Record<string, string>
+}
+
+export interface PluginDebugger {
+  /** Unique id, also the launch.json `type` it answers to (plus `types`). */
+  type: string
+  label: string
+  /** Monaco language ids whose files this debugger launches. */
+  languages: string[]
+  /** Extra launch.json `type` values handled by this adapter (e.g. "python" for debugpy). */
+  types?: string[]
+  adapter: {
+    /** Executable, or candidates tried in order (first found on PATH wins). */
+    command: string | string[]
+    args?: string[]
+    env?: Record<string, string>
+  }
+  /** Shown when the adapter can't be started. */
+  install?: string
+  /** Default `launch` request arguments; ${…} variables are resolved. */
+  launch: Record<string, unknown>
+  /** Task id to run (and wait for) before launching, e.g. "cargo.build". */
+  preLaunchTask?: string
+  when?: { files?: string[] }
+}
+
 export interface PluginManifest {
   id: string
   name: string
@@ -196,6 +247,7 @@ export interface PluginManifest {
   languageServers?: PluginLanguageServer[]
   tasks?: PluginTask[]
   runners?: PluginRunner[]
+  debuggers?: PluginDebugger[]
 }
 
 export interface PluginEntry {
@@ -293,6 +345,13 @@ export interface EcodeApi {
   lspStopAll(): Promise<void>
   onLspNotification(cb: (server: LspServerId, method: string, params: unknown) => void): () => void
   onLspExit(cb: (server: LspServerId, code: number | null) => void): () => void
+  // debug adapters
+  dapStart(spec: DapAdapterSpec): Promise<number>
+  dapSend(id: number, msg: unknown): void
+  dapStop(id: number): void
+  onDapMessage(cb: (id: number, msg: Record<string, unknown>) => void): () => void
+  onDapStderr(cb: (id: number, data: string) => void): () => void
+  onDapExit(cb: (id: number, code: number | null) => void): () => void
   // git
   gitStatus(root: string): Promise<GitStatus | null>
   gitInit(root: string): Promise<void>
@@ -320,6 +379,22 @@ export interface EcodeApi {
   taskKill(id: number): void
   onTaskOutput(cb: (id: number, data: string) => void): () => void
   onTaskExit(cb: (id: number, code: number | null) => void): () => void
+  homeDir(): Promise<string>
+  /** CPU architecture in Node terms (x64, arm64). */
+  arch: string
+  // extensions (VS Code / VSCodium .vsix)
+  extensionsDir(): Promise<string>
+  extensionsList(): Promise<ExtensionFolder[]>
+  /** Unpack a .vsix into the extensions folder (replacing other versions); returns the new folder. */
+  extensionInstall(vsixPath: string): Promise<ExtensionFolder>
+  extensionUninstall(dir: string): Promise<void>
+  /** Download to a temporary file and return its path. */
+  download(url: string): Promise<string>
+  /** GET a URL as text (gallery JSON), from the backend so CORS doesn't apply. */
+  httpGet(url: string): Promise<string>
+  /** A small image file as a data: URL (extension icons, icon themes), or null. */
+  readDataUrl(path: string): Promise<string | null>
+  pickVsix(): Promise<string | null>
   /** Absolute path of a CLI tool on PATH, or null. */
   which(command: string): Promise<string | null>
   /** Installed font families (may be empty where the runtime can't enumerate). */

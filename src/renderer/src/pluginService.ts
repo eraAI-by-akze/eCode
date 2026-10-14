@@ -1,4 +1,4 @@
-import type { PluginEntry, PluginLanguageServer, PluginManifest, PluginRunner, PluginTask } from '@shared/types'
+import type { PluginEntry, PluginLanguageServer, PluginManifest, PluginRunner, PluginTask, PluginDebugger } from '@shared/types'
 import { getState, setState } from './store'
 
 /**
@@ -32,8 +32,10 @@ export function isEnabled(id: string): boolean {
 }
 
 function active(): { manifest: PluginManifest; dir: string }[] {
-  return getState()
-    .plugins.filter((p): p is PluginEntry & { manifest: PluginManifest } => !!p.manifest?.id && isEnabled(p.manifest.id))
+  const { plugins, extPlugins } = getState()
+  // Extension-provided entries first: an installed rust-analyzer extension beats the plugin's PATH lookup.
+  return [...extPlugins, ...plugins]
+    .filter((p): p is PluginEntry & { manifest: PluginManifest } => !!p.manifest?.id && isEnabled(p.manifest.id))
     .map((p) => ({ manifest: p.manifest, dir: p.dir }))
 }
 
@@ -44,6 +46,7 @@ function collect<T>(pick: (m: PluginManifest) => T[] | undefined): Contributed<T
 export const pluginTasks = (): Contributed<PluginTask>[] => collect((m) => m.tasks)
 export const pluginRunners = (): Contributed<PluginRunner>[] => collect((m) => m.runners)
 export const pluginServers = (): Contributed<PluginLanguageServer>[] => collect((m) => m.languageServers)
+export const pluginDebuggers = (): Contributed<PluginDebugger>[] => collect((m) => m.debuggers)
 
 /** Look up which CLI tools the active plugins need, for the Plugins view. */
 export async function refreshTools(): Promise<void> {

@@ -13,6 +13,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 export function SettingsView() {
   const s = useStore((st) => st.settings)
+  const iconThemes = useStore((st) => st.iconThemes)
+  useStore((st) => st.themesVersion)
 
   return (
     <div className="settings-view">
@@ -46,6 +48,19 @@ export function SettingsView() {
           </button>
         ))}
       </div>
+
+      <div className="setting-row">
+        <label>Значки файлов</label>
+        <select className="dbg-config narrow" value={s.iconTheme} onChange={(e) => a.updateSettings({ iconTheme: e.target.value })}>
+          <option value="">eCode</option>
+          {iconThemes.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="settings-hint">Темы и значки из VS Code ставятся на панели «Расширения» (Ctrl+Shift+X).</p>
 
       <div className="section-label">Шрифт редактора и терминала</div>
       <FontPicker />
@@ -88,6 +103,16 @@ export function SettingsView() {
       <div className="setting-row">
         <label>Анимации интерфейса</label>
         <Toggle value={s.animations} onChange={(v) => a.updateSettings({ animations: v })} />
+      </div>
+
+      <div className="section-label">Расширения</div>
+      <div className="setting-row column">
+        <label>Каталог расширений (Open VSX)</label>
+        <input
+          className="dbg-input wide"
+          defaultValue={s.extensionGallery}
+          onBlur={(e) => e.target.value.trim() !== s.extensionGallery && a.updateSettings({ extensionGallery: e.target.value.trim() || 'https://open-vsx.org' })}
+        />
       </div>
 
       <p className="settings-hint">

@@ -1,14 +1,15 @@
 import { useStore, type SidebarView } from '../store'
 import * as a from '../actions'
 import { formatKeys } from '../commands'
-import { IconFiles, IconGit, IconPalette, IconPuzzle, IconSearch, IconSettings, IconSparkle, IconTerminal } from './Icons'
+import { IconBug, IconFiles, IconGit, IconPalette, IconPuzzle, IconSearch, IconSettings, IconSparkle, IconTerminal } from './Icons'
 
 const ITEMS: { view: SidebarView; title: string; keys: string; Icon: typeof IconFiles }[] = [
   { view: 'explorer', title: 'Проводник', keys: 'mod+shift+e', Icon: IconFiles },
   { view: 'search', title: 'Поиск', keys: 'mod+shift+f', Icon: IconSearch },
   { view: 'scm', title: 'Git', keys: 'ctrl+shift+g', Icon: IconGit },
+  { view: 'debug', title: 'Запуск и отладка', keys: 'mod+shift+d', Icon: IconBug },
   { view: 'ai', title: 'eraAI', keys: 'mod+shift+a', Icon: IconSparkle },
-  { view: 'plugins', title: 'Плагины', keys: 'mod+shift+x', Icon: IconPuzzle }
+  { view: 'plugins', title: 'Расширения и плагины', keys: 'mod+shift+x', Icon: IconPuzzle }
 ]
 
 // Matches .activitybar padding (4px), item height (40px) and gap (4px).
@@ -21,6 +22,7 @@ export function ActivityBar() {
   const changes = useStore((s) => s.git?.files.length ?? 0)
   const aiState = useStore((s) => s.ai.state)
   const aiBusy = useStore((s) => !!s.aiBusy)
+  const debugState = useStore((s) => s.debug?.status)
   const index = ITEMS.findIndex((i) => i.view === sidebar)
 
   return (
@@ -40,6 +42,7 @@ export function ActivityBar() {
           <Icon size={22} />
           {view === 'scm' && changes > 0 && <span className="ab-badge">{changes > 99 ? '99+' : changes}</span>}
           {view === 'ai' && aiState === 'ready' && <span className={`ab-live ${aiBusy ? 'busy' : ''}`} />}
+          {view === 'debug' && debugState && <span className={`ab-live debug ${debugState}`} />}
         </button>
       ))}
       <button

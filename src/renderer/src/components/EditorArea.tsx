@@ -6,6 +6,7 @@ import * as a from '../actions'
 import * as ed from '../editorService'
 import { basename, relative } from '../lib/path'
 import { formatKeys } from '../commands'
+import { DebugToolbar } from './DebugToolbar'
 import { FileIcon, IconChevron, IconClose, IconColumns, IconGoToFile, IconMinus, IconPlus, Logo } from './Icons'
 
 const api = window.ecode
@@ -239,6 +240,7 @@ export function EditorArea() {
       <div className="editor-host" ref={hostRef} style={{ display: hasTabs && !diffTab ? 'block' : 'none' }} />
       <div className="editor-host" ref={diffRef} style={{ display: diffTab ? 'block' : 'none' }} />
       {!hasTabs && <Welcome />}
+      <DebugToolbar />
     </div>
   )
 }

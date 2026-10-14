@@ -70,7 +70,7 @@ export function killAllTasks(): void {
 }
 
 /** Resolve a CLI tool on PATH (with PATHEXT on Windows). */
-async function which(command: string): Promise<string | null> {
+export async function which(command: string): Promise<string | null> {
   if (!command) return null
   const exts = isWin ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : ['']
   for (const dir of (process.env.PATH ?? '').split(delimiter)) {
@@ -130,6 +130,7 @@ export function registerTaskHandlers(): void {
   ipcMain.handle('task:run', (e, command: string, cwd: string) => run(e.sender, command, cwd))
   ipcMain.on('task:kill', (_e, id: number) => kill(id))
   ipcMain.handle('tools:which', (_e, command: string) => which(command))
+  ipcMain.handle('app:homeDir', () => homedir())
   ipcMain.handle('plugins:list', () => listPlugins())
   ipcMain.handle('plugins:dir', () => userPluginsDir())
   // Electron: the renderer enumerates fonts with queryLocalFonts().

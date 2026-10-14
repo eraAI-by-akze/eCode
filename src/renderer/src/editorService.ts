@@ -3,6 +3,7 @@ import { getState, setState } from './store'
 import { basename, extname, isUntitled } from './lib/path'
 import * as lsp from './lspClient'
 import { fontStack } from './fontService'
+import { monacoThemeId } from './themes'
 
 type Model = monaco.editor.ITextModel
 
@@ -17,6 +18,31 @@ let revealPending = false
 let shownPath: string | null = null
 
 const createdHooks: ((model: Model) => void)[] = []
+const mountHooks: ((ed: monaco.editor.IStandaloneCodeEditor) => monaco.IDisposable[])[] = []
+
+/** Runs for every editor instance as it mounts; returned disposables go with it. */
+export function onEditorMounted(cb: (ed: monaco.editor.IStandaloneCodeEditor) => monaco.IDisposable[]): void {
+  mountHooks.push(cb)
+  if (editor) cb(editor)
+}
+
+export function getEditor(): monaco.editor.IStandaloneCodeEditor | null {
+  return editor
+}
+
+/** Files opened before an extension added their language: give them the right one now. */
+export function redetectLanguages(): void {
+  for (const [path, model] of models) {
+    if (model.getLanguageId() !== 'plaintext') continue
+    const lang = languageForPath(path)
+    if (lang !== 'plaintext') monaco.editor.setModelLanguage(model, lang)
+  }
+  syncStatus()
+}
+
+export function getModel(path: string): Model | undefined {
+  return models.get(path)
+}
 
 /** Run `cb` for every real file model that gets created (task markers, etc.). */
 export function onModelCreated(cb: (model: Model) => void): void {
@@ -43,7 +69,7 @@ function editorOptions(): monaco.editor.IEditorOptions & monaco.editor.IGlobalEd
     tabSize: s.tabSize,
     wordWrap: s.wordWrap ? 'on' : 'off',
     minimap: { enabled: s.minimap, renderCharacters: false, scale: 1, maxColumn: 100 },
-    theme: s.theme
+    theme: monacoThemeId(s.theme)
   }
 }
 
@@ -91,6 +117,7 @@ export function mountEditor(el: HTMLElement): () => void {
     fixedOverflowWidgets: true,
     scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false },
     overviewRulerBorder: false,
+    glyphMargin: true,
     renderWhitespace: 'selection',
     linkedEditing: true,
     'semanticHighlighting.enabled': true,
@@ -109,6 +136,7 @@ export function mountEditor(el: HTMLElement): () => void {
     })
   ]
   for (const a of extraActions) editor.addAction(a)
+  for (const hook of mountHooks) subs.push(...hook(editor))
   if (shownPath && models.has(shownPath)) show(shownPath, false)
   return () => {
     subs.forEach((s) => s.dispose())
@@ -197,8 +225,8 @@ export function getSelectionInfo(): { text: string; startLine: number; endLine: 
 const extraActions: monaco.editor.IActionDescriptor[] = []
 
 /** Add an entry to the editor's right-click menu (kept across remounts). */
-export function addEditorAction(id: string, label: string, run: () => void, order: number): void {
-  const action = { id, label, contextMenuGroupId: '0_eraai', contextMenuOrder: order, run }
+export function addEditorAction(id: string, label: string, run: () => void, order: number, group = '0_eraai'): void {
+  const action = { id, label, contextMenuGroupId: group, contextMenuOrder: order, run }
   extraActions.push(action)
   editor?.addAction(action)
 }
@@ -315,7 +343,7 @@ export function updateErrorLens(): void {
 }
 
 export function applyEditorOptions(): void {
-  monaco.editor.setTheme(getState().settings.theme)
+  monaco.editor.setTheme(monacoThemeId(getState().settings.theme))
   editor?.updateOptions(editorOptions())
   diffEditor?.updateOptions(diffOptions())
   monaco.editor.remeasureFonts()

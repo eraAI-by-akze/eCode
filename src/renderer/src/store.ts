@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS, type DirEntry, type GitStatus, type LspServerId, type PluginEntry, type Settings } from '@shared/types'
 
-export type SidebarView = 'explorer' | 'search' | 'scm' | 'ai' | 'plugins' | 'settings'
+export type SidebarView = 'explorer' | 'search' | 'scm' | 'debug' | 'ai' | 'plugins' | 'extensions' | 'settings'
 
 export interface Tab {
   path: string
@@ -83,6 +83,83 @@ export interface TaskResult {
   ms: number
 }
 
+export interface Breakpoint {
+  id: string
+  path: string
+  line: number
+  enabled: boolean
+  condition?: string
+  /** Log message instead of stopping (logpoint). */
+  logMessage?: string
+  /** From the adapter while a session runs; undefined = not sent yet. */
+  verified?: boolean
+  message?: string
+}
+
+export interface DebugFrame {
+  id: number
+  name: string
+  path?: string
+  line: number
+  column: number
+}
+
+export interface DebugThread {
+  id: number
+  name: string
+}
+
+export interface DebugSessionState {
+  status: 'starting' | 'running' | 'paused' | 'stopping'
+  name: string
+  type: string
+  threads: DebugThread[]
+  threadId?: number
+  frames: DebugFrame[]
+  frameId?: number
+  stopReason?: string
+  /** Exception text when stopped on one. */
+  exception?: string
+  /** Bumped on every stop so variable views refetch. */
+  stopSeq: number
+}
+
+export interface ConsoleLine {
+  id: number
+  kind: 'stdout' | 'stderr' | 'console' | 'input' | 'result' | 'error' | 'info'
+  text: string
+  /** For expandable REPL results. */
+  ref?: number
+}
+
+export interface InstalledExtension {
+  /** publisher.name, lower case. */
+  id: string
+  name: string
+  displayName: string
+  publisher: string
+  version: string
+  description: string
+  dir: string
+  /** Absolute path of the extension's icon (PNG/SVG). */
+  icon?: string
+  enabled: boolean
+  /** What eCode uses from it, e.g. ["Тема", "Синтаксис"]. */
+  features: string[]
+  /** It ships JavaScript (activation code) that eCode doesn't run. */
+  hasCode: boolean
+  /** Nothing in it works in eCode. */
+  unsupported: boolean
+  error?: string
+}
+
+export interface IconThemeInfo {
+  id: string
+  label: string
+  path: string
+  extension: string
+}
+
 export interface Toast {
   id: number
   message: string
@@ -121,7 +198,7 @@ export interface State {
   sidebar: SidebarView | null
   lastSidebar: SidebarView
   panelOpen: boolean
-  panelTab: 'terminal' | 'problems' | 'output'
+  panelTab: 'terminal' | 'problems' | 'output' | 'debug'
   terminals: TerminalTab[]
   activeTerminal: number | null
   /** From language servers. */
@@ -129,6 +206,12 @@ export interface State {
   /** From build/check tasks (compiler output). */
   taskDiagnostics: Record<string, Diagnostic[]>
   plugins: PluginEntry[]
+  extensions: InstalledExtension[]
+  /** Debuggers / language servers that extensions bring, as pseudo-plugins. */
+  extPlugins: PluginEntry[]
+  iconThemes: IconThemeInfo[]
+  /** Bumped when extension themes change, so theme lists re-render. */
+  themesVersion: number
   /** Resolved paths of CLI tools plugins need (null = not found). */
   tools: Record<string, string | null>
   task: TaskRunState | null
@@ -153,6 +236,12 @@ export interface State {
   toasts: Toast[]
   fileIndex: string[] | null
   maximized: boolean
+  breakpoints: Breakpoint[]
+  debug: DebugSessionState | null
+  debugConsole: ConsoleLine[]
+  watches: string[]
+  /** Id of the chosen launch configuration in the Run & Debug view. */
+  debugConfig: string | null
 }
 
 export const useStore = create<State>(() => ({
@@ -174,6 +263,10 @@ export const useStore = create<State>(() => ({
   diagnostics: {},
   taskDiagnostics: {},
   plugins: [],
+  extensions: [],
+  extPlugins: [],
+  iconThemes: [],
+  themesVersion: 0,
   tools: {},
   task: null,
   lastTask: null,
@@ -194,7 +287,12 @@ export const useStore = create<State>(() => ({
   eol: 'LF',
   toasts: [],
   fileIndex: null,
-  maximized: false
+  maximized: false,
+  breakpoints: [],
+  debug: null,
+  debugConsole: [],
+  watches: [],
+  debugConfig: null
 }))
 
 export const getState = useStore.getState

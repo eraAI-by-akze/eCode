@@ -3,12 +3,19 @@
   "name": "C# и .NET",
   "version": "1.0.0",
   "description": "Сборка, проверка, тесты и запуск .NET-проектов (dotnet CLI), языковой сервер C# (csharp-ls).",
-  "requires": [{ "command": "dotnet", "install": "https://dotnet.microsoft.com/download" }],
+  "requires": [
+    {
+      "command": "dotnet",
+      "install": "https://dotnet.microsoft.com/download"
+    }
+  ],
   "languageServers": [
     {
       "id": "csharp",
       "name": "C# (csharp-ls)",
-      "languages": ["csharp"],
+      "languages": [
+        "csharp"
+      ],
       "command": "csharp-ls",
       "install": "dotnet tool install --global csharp-ls"
     }
@@ -20,7 +27,13 @@
       "group": "build",
       "command": "dotnet build \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo -clp:NoSummary",
       "problemMatcher": "msbuild",
-      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+      "when": {
+        "files": [
+          "**/*.sln",
+          "**/*.csproj",
+          "**/*.fsproj"
+        ]
+      }
     },
     {
       "id": "dotnet.check",
@@ -28,7 +41,13 @@
       "group": "check",
       "command": "dotnet build \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo -v q -clp:NoSummary",
       "problemMatcher": "msbuild",
-      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+      "when": {
+        "files": [
+          "**/*.sln",
+          "**/*.csproj",
+          "**/*.fsproj"
+        ]
+      }
     },
     {
       "id": "dotnet.test",
@@ -36,7 +55,12 @@
       "group": "test",
       "command": "dotnet test \"${find:**/*.sln|**/*.csproj}\" -nologo",
       "problemMatcher": "msbuild",
-      "when": { "files": ["**/*.sln", "**/*.csproj"] }
+      "when": {
+        "files": [
+          "**/*.sln",
+          "**/*.csproj"
+        ]
+      }
     },
     {
       "id": "dotnet.run",
@@ -44,22 +68,84 @@
       "group": "run",
       "command": "dotnet run --project \"${find:**/*.csproj|**/*.fsproj}\"",
       "terminal": true,
-      "when": { "files": ["**/*.csproj", "**/*.fsproj"] }
+      "when": {
+        "files": [
+          "**/*.csproj",
+          "**/*.fsproj"
+        ]
+      }
     },
     {
       "id": "dotnet.format",
       "label": "dotnet format",
       "group": "format",
       "command": "dotnet format \"${find:**/*.sln|**/*.csproj}\"",
-      "when": { "files": ["**/*.sln", "**/*.csproj"] }
+      "when": {
+        "files": [
+          "**/*.sln",
+          "**/*.csproj"
+        ]
+      }
     },
     {
       "id": "dotnet.clean",
       "label": "dotnet clean",
       "group": "clean",
       "command": "dotnet clean \"${find:**/*.sln|**/*.csproj|**/*.fsproj}\" -nologo",
-      "when": { "files": ["**/*.sln", "**/*.csproj", "**/*.fsproj"] }
+      "when": {
+        "files": [
+          "**/*.sln",
+          "**/*.csproj",
+          "**/*.fsproj"
+        ]
+      }
     }
   ],
-  "runners": [{ "extensions": [".cs", ".fs"], "command": "dotnet run --project \"${find:**/*.csproj|**/*.fsproj}\"" }]
+  "runners": [
+    {
+      "extensions": [
+        ".cs",
+        ".fs"
+      ],
+      "command": "dotnet run --project \"${find:**/*.csproj|**/*.fsproj}\""
+    }
+  ],
+  "debuggers": [
+    {
+      "type": "coreclr",
+      "types": [
+        "netcoredbg"
+      ],
+      "label": ".NET: запуск проекта",
+      "languages": [
+        "csharp",
+        "fsharp"
+      ],
+      "adapter": {
+        "command": [
+          "netcoredbg",
+          "~/.ecode/debuggers/netcoredbg/netcoredbg",
+          "~/.dotnet/tools/netcoredbg"
+        ],
+        "args": [
+          "--interpreter=vscode"
+        ]
+      },
+      "install": "https://github.com/Samsung/netcoredbg/releases (распакуйте в ~/.ecode/debuggers/netcoredbg)",
+      "launch": {
+        "program": "${dotnetTarget}",
+        "args": [],
+        "cwd": "${dotnetProjectDir}",
+        "stopAtEntry": false,
+        "console": "internalConsole"
+      },
+      "preLaunchTask": "dotnet.build",
+      "when": {
+        "files": [
+          "**/*.csproj",
+          "**/*.fsproj"
+        ]
+      }
+    }
+  ]
 }

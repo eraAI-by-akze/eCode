@@ -3,12 +3,19 @@
   "name": "Rust",
   "version": "1.0.0",
   "description": "cargo build / check / clippy / test / run / fmt с разбором ошибок, языковой сервер rust-analyzer.",
-  "requires": [{ "command": "cargo", "install": "https://rustup.rs" }],
+  "requires": [
+    {
+      "command": "cargo",
+      "install": "https://rustup.rs"
+    }
+  ],
   "languageServers": [
     {
       "id": "rust",
       "name": "rust-analyzer",
-      "languages": ["rust"],
+      "languages": [
+        "rust"
+      ],
       "command": "rust-analyzer",
       "install": "rustup component add rust-analyzer"
     }
@@ -21,7 +28,11 @@
       "command": "cargo build --message-format=short --color never",
       "cwd": "${findDir:**/Cargo.toml}",
       "problemMatcher": "rustc",
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     },
     {
       "id": "cargo.check",
@@ -30,7 +41,11 @@
       "command": "cargo check --all-targets --message-format=short --color never",
       "cwd": "${findDir:**/Cargo.toml}",
       "problemMatcher": "rustc",
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     },
     {
       "id": "cargo.clippy",
@@ -39,7 +54,11 @@
       "command": "cargo clippy --all-targets --message-format=short --color never",
       "cwd": "${findDir:**/Cargo.toml}",
       "problemMatcher": "rustc",
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     },
     {
       "id": "cargo.test",
@@ -48,7 +67,11 @@
       "command": "cargo test --message-format=short --color never",
       "cwd": "${findDir:**/Cargo.toml}",
       "problemMatcher": "rustc",
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     },
     {
       "id": "cargo.run",
@@ -57,7 +80,11 @@
       "command": "cargo run",
       "cwd": "${findDir:**/Cargo.toml}",
       "terminal": true,
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     },
     {
       "id": "cargo.fmt",
@@ -65,8 +92,119 @@
       "group": "format",
       "command": "cargo fmt",
       "cwd": "${findDir:**/Cargo.toml}",
-      "when": { "files": ["**/Cargo.toml"] }
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
     }
   ],
-  "runners": [{ "extensions": [".rs"], "command": "cargo run", "cwd": "${findDir:**/Cargo.toml}" }]
+  "runners": [
+    {
+      "extensions": [
+        ".rs"
+      ],
+      "command": "cargo run",
+      "cwd": "${findDir:**/Cargo.toml}"
+    }
+  ],
+  "debuggers": [
+    {
+      "type": "lldb",
+      "types": [
+        "codelldb"
+      ],
+      "label": "Rust: CodeLLDB",
+      "languages": [
+        "rust"
+      ],
+      "adapter": {
+        "command": [
+          "codelldb",
+          "~/.ecode/debuggers/codelldb/adapter/codelldb"
+        ]
+      },
+      "install": "Установите расширение CodeLLDB (vadimcn.vscode-lldb) на панели «Расширения»",
+      "launch": {
+        "program": "${cargoTarget}",
+        "args": [],
+        "cwd": "${cargoDir}",
+        "sourceLanguages": [
+          "rust"
+        ]
+      },
+      "preLaunchTask": "cargo.build",
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
+    },
+    {
+      "type": "lldb-dap",
+      "types": [
+        "lldb-vscode",
+        "lldb"
+      ],
+      "label": "Rust: lldb-dap",
+      "languages": [
+        "rust"
+      ],
+      "adapter": {
+        "command": [
+          "lldb-dap",
+          "lldb-dap-20",
+          "lldb-dap-19",
+          "lldb-dap-18",
+          "lldb-vscode"
+        ]
+      },
+      "install": "LLVM: lldb-dap (apt install lldb, brew install llvm)",
+      "launch": {
+        "program": "${cargoTarget}",
+        "args": [],
+        "cwd": "${cargoDir}",
+        "initCommands": [
+          "command script import \"${rustSysroot}/lib/rustlib/etc/lldb_lookup.py\"",
+          "command source -s 0 \"${rustSysroot}/lib/rustlib/etc/lldb_commands\""
+        ]
+      },
+      "preLaunchTask": "cargo.build",
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
+    },
+    {
+      "type": "gdb",
+      "types": [
+        "cppdbg"
+      ],
+      "label": "Rust: GDB",
+      "languages": [
+        "rust"
+      ],
+      "adapter": {
+        "command": [
+          "gdb"
+        ],
+        "args": [
+          "-i=dap"
+        ]
+      },
+      "install": "GDB 14+ (apt install gdb)",
+      "launch": {
+        "program": "${cargoTarget}",
+        "args": [],
+        "cwd": "${cargoDir}"
+      },
+      "preLaunchTask": "cargo.build",
+      "when": {
+        "files": [
+          "**/Cargo.toml"
+        ]
+      }
+    }
+  ]
 }

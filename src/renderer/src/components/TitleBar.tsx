@@ -3,7 +3,8 @@ import * as a from '../actions'
 import { basename } from '../lib/path'
 import { formatKeys } from '../commands'
 import * as tasks from '../taskService'
-import { IconChevron, IconClose, IconHammer, IconMaximize, IconMinimize, IconRestore, IconSearch, IconSplit, Logo } from './Icons'
+import * as dbg from '../debugService'
+import { IconBug, IconChevron, IconClose, IconHammer, IconMaximize, IconMinimize, IconRestore, IconSearch, IconSplit, Logo } from './Icons'
 
 const api = window.ecode
 const isMac = api.platform === 'darwin'
@@ -17,6 +18,7 @@ export function TitleBar() {
   const busy = useStore((s) => !!s.task || !!s.aiBusy)
   const task = useStore((s) => s.task)
   const last = useStore((s) => s.lastTask)
+  const debugging = useStore((s) => !!s.debug)
 
   return (
     <header
@@ -62,6 +64,15 @@ export function TitleBar() {
               <IconChevron size={11} style={{ transform: 'rotate(90deg)' }} />
             </button>
           </div>
+        )}
+        {root && (
+          <button
+            className={`tb-debug ${debugging ? 'on' : ''}`}
+            title={debugging ? 'Идёт отладка' : `Начать отладку (${formatKeys(['f6'])})`}
+            onClick={() => (debugging ? a.showSidebar('debug') : void dbg.startDebugging())}
+          >
+            <IconBug size={15} />
+          </button>
         )}
         <button
           className={`tb-toggle ${sidebar ? 'on' : ''}`}

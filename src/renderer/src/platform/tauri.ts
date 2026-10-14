@@ -161,6 +161,27 @@ export function createTauriApi(): EcodeApi {
     onTaskOutput: (cb) => subscribe<{ id: number; data: string }>('task:output', (p) => cb(p.id, p.data)),
     onTaskExit: (cb) => subscribe<{ id: number; code: number | null }>('task:exit', (p) => cb(p.id, p.code)),
     which: (command) => invoke('which', { command }),
+    homeDir: () => invoke('home_dir'),
+    arch: (window as unknown as { __ECODE_ARCH__?: string }).__ECODE_ARCH__ ?? 'x64',
+    extensionsDir: () => invoke('ext_dir'),
+    extensionsList: () => invoke('ext_list'),
+    extensionInstall: (vsix) => invoke('ext_install', { vsix }),
+    extensionUninstall: (dir) => invoke('ext_uninstall', { dir }),
+    download: (url) => invoke('net_download', { url }),
+    httpGet: (url) => invoke('net_get', { url }),
+    readDataUrl: (path) => invoke('data_url', { path }),
+    pickVsix: async () =>
+      ((await open({
+        title: 'Установить расширение',
+        multiple: false,
+        filters: [{ name: 'VS Code extension', extensions: ['vsix'] }]
+      })) as string | null) ?? null,
+    dapStart: (spec) => invoke('dap_start', { spec }),
+    dapSend: (id, msg) => void invoke('dap_send', { id, msg }).catch(() => {}),
+    dapStop: (id) => void invoke('dap_stop', { id }),
+    onDapMessage: (cb) => subscribe<{ id: number; msg: Record<string, unknown> }>('dap:message', (p) => cb(p.id, p.msg)),
+    onDapStderr: (cb) => subscribe<{ id: number; data: string }>('dap:stderr', (p) => cb(p.id, p.data)),
+    onDapExit: (cb) => subscribe<{ id: number; code: number | null }>('dap:exit', (p) => cb(p.id, p.code)),
     listFonts: () => invoke('list_fonts'),
 
     loadSettings: async () => {

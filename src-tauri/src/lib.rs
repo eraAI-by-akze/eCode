@@ -2,7 +2,9 @@
 //! implements the same `window.ecode` backend (see src/renderer/src/platform/tauri.ts).
 
 mod app;
+mod dap;
 mod era;
+mod extensions;
 mod fs;
 mod git;
 mod lsp;
@@ -28,12 +30,22 @@ pub fn run() {
         .manage(era::EraState::default())
         .manage(settings::SettingsState::default())
         .manage(tasks::TaskState::default())
+        .manage(dap::DapState::default())
         .setup(|app| {
             let mut win = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("eCode")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(760.0, 480.0)
-                .background_color(tauri::window::Color(12, 10, 20, 255));
+                .background_color(tauri::window::Color(12, 10, 20, 255))
+                // The renderer needs the CPU architecture synchronously (extension targets).
+                .initialization_script(format!(
+                    "window.__ECODE_ARCH__ = {:?};",
+                    match std::env::consts::ARCH {
+                        "x86_64" => "x64",
+                        "aarch64" => "arm64",
+                        other => other,
+                    }
+                ));
             #[cfg(target_os = "macos")]
             {
                 // Native traffic lights over our own title bar.
@@ -99,9 +111,20 @@ pub fn run() {
             tasks::task_run,
             tasks::task_kill,
             tasks::which,
+            tasks::home_dir,
             tasks::plugins_dir,
             tasks::plugins_list,
             tasks::list_fonts,
+            dap::dap_start,
+            dap::dap_send,
+            dap::dap_stop,
+            extensions::ext_dir,
+            extensions::ext_list,
+            extensions::ext_install,
+            extensions::ext_uninstall,
+            extensions::net_get,
+            extensions::net_download,
+            extensions::data_url,
             settings::settings_load,
             settings::settings_save,
         ])
@@ -113,6 +136,7 @@ pub fn run() {
                 lsp::stop_all(&handle.state::<lsp::LspState>());
                 era::stop_all(&handle.state::<era::EraState>());
                 tasks::kill_all(&handle.state::<tasks::TaskState>());
+                dap::stop_all(&handle.state::<dap::DapState>());
             }
         });
 }

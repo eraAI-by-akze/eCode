@@ -176,6 +176,17 @@ pub fn which_path(name: &str) -> Option<PathBuf> {
 }
 
 #[tauri::command]
+pub fn home_dir() -> String {
+    home()
+}
+
+pub fn home() -> String {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".into())
+}
+
+#[tauri::command]
 pub fn which(command: String) -> Option<String> {
     which_path(&command).map(|p| to_string_lossy(&p))
 }
@@ -261,10 +272,7 @@ pub struct PluginEntry {
 }
 
 fn user_plugins_dir() -> PathBuf {
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| ".".into());
-    let dir = Path::new(&home).join(".ecode").join("plugins");
+    let dir = Path::new(&home()).join(".ecode").join("plugins");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }

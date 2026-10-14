@@ -6,7 +6,11 @@ import { refreshGit } from './scm'
 import { askAboutSelection } from './eraService'
 import { currentFontName, detectAutoFont, loadFont } from './fontService'
 import { loadPlugins } from './pluginService'
-import { getState, setState, useStore, type PickItem, type SidebarView } from './store'
+import { getState, setState, useStore, type PickItem, type SidebarView, type State } from './store'
+import { initDebugEditor, toggleAtCursor, conditionalAtCursor } from './debugEditor'
+import { loadBreakpoints } from './debugService'
+import { applyIconTheme, bindSettings, loadExtensions } from './extensionService'
+import { setThemeScopes } from './textmate'
 import { THEMES, THEME_LIST, applyThemeVars } from './themes'
 import { basename, dirname, isInside, isUntitled } from './lib/path'
 
@@ -49,8 +53,11 @@ export function updateSettings(patch: Partial<Settings>): void {
     withTransition(() => {
       setState((s) => ({ settings: { ...s.settings, theme } }))
       applyThemeVars(THEMES[theme])
+      setThemeScopes(THEMES[theme].monaco.rules)
       ed.applyEditorOptions()
     })
+    // Icon themes have light variants.
+    queueMicrotask(() => void applyIconTheme())
   }
   setState((s) => ({ settings: { ...s.settings, ...patch } }))
   api.saveSettings(patch)
@@ -60,6 +67,7 @@ export function updateSettings(patch: Partial<Settings>): void {
     void loadFont(currentFontName(), getState().settings.fontSize).then(() => ed.applyEditorOptions())
   }
   if ('disabledPlugins' in patch) void restartLanguageServers(true)
+  if ('iconTheme' in patch) void applyIconTheme()
   if (
     'theme' in patch ||
     'fontSize' in patch ||
@@ -87,18 +95,31 @@ function syncDirtyFlag(): void {
 export async function init(): Promise<void> {
   const loaded = await api.loadSettings()
   const settings = { ...DEFAULT_SETTINGS, ...loaded, era: { ...DEFAULT_ERA, ...loaded.era } }
-  // A theme id from an older or hand-edited settings file falls back to the default.
-  if (!THEMES[settings.theme]) settings.theme = DEFAULT_SETTINGS.theme
+  // A theme id from an older or hand-edited settings file falls back to the default
+  // (extension themes are checked once extensions have loaded).
+  if (!THEMES[settings.theme] && !settings.theme.startsWith('ext:')) settings.theme = DEFAULT_SETTINGS.theme
   setState({ settings })
   applyAnimationSetting(settings.animations)
   // Nerd Font detection and plugins load before any editor or language server starts.
-  await Promise.all([detectAutoFont().then(() => loadFont(currentFontName(), settings.fontSize)), loadPlugins()])
+  bindSettings(updateSettings)
+  await Promise.all([detectAutoFont().then(() => loadFont(currentFontName(), settings.fontSize)), loadPlugins(), loadExtensions()])
+  // A theme from an extension that has since been removed falls back to the default.
+  if (!THEMES[settings.theme]) {
+    settings.theme = DEFAULT_SETTINGS.theme
+    setState((s) => ({ settings: { ...s.settings, theme: settings.theme } }))
+  }
+  initDebugEditor()
+  loadBreakpoints()
   applyThemeVars(THEMES[settings.theme])
+  setThemeScopes(THEMES[settings.theme].monaco.rules)
   ed.applyEditorOptions()
 
   ed.addEditorAction('eraai.explain', 'eraAI: объяснить', () => askAboutSelection('explain'), 1)
   ed.addEditorAction('eraai.fix', 'eraAI: исправить', () => askAboutSelection('fix'), 2)
   ed.addEditorAction('eraai.docs', 'eraAI: документировать', () => askAboutSelection('docs'), 3)
+  ed.addEditorAction('debug.toggleBp', 'Точка останова (F9)', toggleAtCursor, 1, '1_debug')
+  ed.addEditorAction('debug.condBp', 'Точка останова с условием…', () => conditionalAtCursor('condition'), 2, '1_debug')
+  ed.addEditorAction('debug.logBp', 'Точка журнала…', () => conditionalAtCursor('log'), 3, '1_debug')
 
   api.onMaximizedChange((maximized) => setState({ maximized }))
   api.onFsChange(onFsChange)
@@ -532,7 +553,7 @@ export function togglePanel(): void {
   setState((s) => ({ panelOpen: !s.panelOpen }))
 }
 
-export function showPanel(tab: 'terminal' | 'problems' | 'output'): void {
+export function showPanel(tab: State['panelTab']): void {
   setState({ panelOpen: true, panelTab: tab })
 }
 
@@ -572,6 +593,18 @@ export function pickTheme(): void {
     'Выберите тему',
     THEME_LIST.map((t) => ({ id: t.id, label: t.name, detail: t.tagline, active: t.id === current })),
     (id) => updateSettings({ theme: id as Settings['theme'] })
+  )
+}
+
+export function pickIconTheme(): void {
+  const { iconThemes, settings } = getState()
+  pick(
+    'Тема значков файлов',
+    [
+      { id: '', label: 'eCode', detail: 'встроенные значки', active: !settings.iconTheme },
+      ...iconThemes.map((t) => ({ id: t.id, label: t.label, detail: t.extension, active: t.id === settings.iconTheme }))
+    ],
+    (id) => updateSettings({ iconTheme: id })
   )
 }
 

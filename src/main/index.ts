@@ -7,6 +7,8 @@ import { registerLspHandlers, stopAllLanguageServers } from './lsp'
 import { registerGitHandlers } from './git'
 import { registerEraHandlers, stopEra } from './era'
 import { registerTaskHandlers, killAllTasks } from './tasks'
+import { registerDapHandlers, stopAllAdapters } from './dap'
+import { registerExtensionHandlers } from './extensions'
 import { fixPath } from './shellEnv'
 
 // Before anything spawns tools: give GUI launches the shell's PATH.
@@ -181,6 +183,8 @@ app.whenReady().then(() => {
   registerGitHandlers()
   registerEraHandlers(() => mainWindow)
   registerTaskHandlers()
+  registerDapHandlers()
+  registerExtensionHandlers()
   registerSettingsHandlers()
   createWindow()
 
@@ -200,6 +204,7 @@ app.on('before-quit', () => {
   stopAllLanguageServers()
   stopEra()
   killAllTasks()
+  stopAllAdapters()
   flushSettings()
 })
 

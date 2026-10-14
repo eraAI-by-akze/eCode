@@ -21,6 +21,7 @@ export function StatusBar() {
   const theme = useStore((s) => s.settings.theme)
   const dirtyCount = useStore((s) => s.tabs.filter((t) => t.dirty).length)
   const lsp = useStore((s) => s.lsp)
+  const debugStatus = useStore((s) => s.debug?.status)
   const all = useAllDiagnostics()
   let errors = 0
   let warnings = 0
@@ -36,7 +37,7 @@ export function StatusBar() {
   const serverStatus = server ? lsp[server] : undefined
 
   return (
-    <footer className="statusbar">
+    <footer className={`statusbar ${debugStatus ? `debugging ${debugStatus}` : ''}`}>
       <div className="sb-left">
         <span className="sb-accent" />
         {root ? (

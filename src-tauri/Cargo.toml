@@ -28,6 +28,8 @@ ureq = { version = "2", default-features = false, features = ["json", "native-tl
 native-tls = "0.2"
 # Pure-Rust font enumeration for the font picker.
 fontdb = "0.23"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
 
 [profile.release]
 codegen-units = 1

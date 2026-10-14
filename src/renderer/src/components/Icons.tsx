@@ -1,6 +1,7 @@
 import type { HTMLAttributes, ReactNode, SVGProps } from 'react'
 import logoUrl from '../assets/era-logo.svg'
 import { extname } from '../lib/path'
+import { useThemedIcon } from '../iconTheme'
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number }
 
@@ -167,6 +168,51 @@ export const IconHammer = make(
   </>
 )
 export const IconStop = make(<rect x="6.5" y="6.5" width="11" height="11" rx="2" />, true)
+export const IconBug = make(
+  <>
+    <path d="M9 7.5V6a3 3 0 0 1 6 0v1.5" />
+    <rect x="7" y="7.5" width="10" height="12" rx="5" />
+    <path d="M12 11v8.5M3.5 13H7M17 13h3.5M4.5 8.5 7.3 10M19.5 8.5 16.7 10M4.5 19l2.8-2M19.5 19l-2.8-2" />
+  </>
+)
+export const IconDebugStart = make(
+  <>
+    <path d="M7 5.5v13l10-6.5z" />
+    <circle cx="18.5" cy="18.5" r="2.2" />
+  </>
+)
+export const IconContinue = make(
+  <>
+    <path d="M5 5v14" />
+    <path d="M9 5.5v13l10-6.5z" />
+  </>
+)
+export const IconPause = make(<path d="M8 5v14M16 5v14" />)
+export const IconStepOver = make(
+  <>
+    <path d="M4 12a8 8 0 0 1 15-3.5" />
+    <path d="M19.5 4v5h-5" />
+    <circle cx="12" cy="18" r="2" />
+  </>
+)
+export const IconStepInto = make(
+  <>
+    <path d="M12 3v10M7.5 8.5 12 13l4.5-4.5" />
+    <circle cx="12" cy="19" r="2" />
+  </>
+)
+export const IconStepOut = make(
+  <>
+    <path d="M12 14V4M7.5 8.5 12 4l4.5 4.5" />
+    <circle cx="12" cy="19" r="2" />
+  </>
+)
+export const IconRestart = make(
+  <>
+    <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+    <path d="M4 4v5h5" />
+  </>
+)
 export const IconFont = make(<path d="M4 20 10 4h1l6 16M6.5 14h8M17 20h4" />)
 
 // ─────────────────────────── file icons ───────────────────────────
@@ -232,6 +278,8 @@ export function fileMeta(name: string): [string, string] {
 
 export function FileIcon({ name, size = 16 }: { name: string; size?: number }) {
   const [color, label] = fileMeta(name)
+  const themed = useThemedIcon(name, 'file')
+  if (themed) return <img className="file-icon themed" src={themed} width={size} height={size} alt="" draggable={false} />
   return (
     <span className="file-icon" style={{ width: size, height: size, color }}>
       {label ? (
@@ -263,4 +311,11 @@ export function Logo({ size = 22, className = '', style, ...rest }: { size?: num
       {...rest}
     />
   )
+}
+
+/** Folder icon: the icon theme's when one is active, otherwise eCode's CSS folder. */
+export function FolderIcon({ name, open }: { name: string; open: boolean }) {
+  const themed = useThemedIcon(name, open ? 'folderOpen' : 'folder')
+  if (themed) return <img className="file-icon themed" src={themed} width={16} height={16} alt="" draggable={false} />
+  return <span className={`folder-icon ${open ? 'open' : ''}`} />
 }

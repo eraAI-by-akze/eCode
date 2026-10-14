@@ -34,7 +34,7 @@ export interface TerminalColors {
   brightWhite: string
 }
 
-const DARK_ANSI = {
+export const DARK_ANSI = {
   black: '#1e1b2e',
   red: '#ff6b8b',
   green: '#4ade80',
@@ -53,7 +53,7 @@ const DARK_ANSI = {
   brightWhite: '#ffffff'
 }
 
-const LIGHT_ANSI = {
+export const LIGHT_ANSI = {
   black: '#1e1b33',
   red: '#e11d48',
   green: '#059669',
@@ -398,7 +398,50 @@ export const THEMES: Record<ThemeId, AppTheme> = {
   }
 }
 
-export const THEME_LIST = Object.values(THEMES)
+/**
+ * TextMate scopes (extension grammars) coloured like the Monarch token that
+ * means the same thing, so every built-in theme works with VS Code grammars.
+ */
+export const TM_SCOPES: [string, string[]][] = [
+  ['comment', ['comment', 'punctuation.definition.comment']],
+  ['keyword', ['keyword', 'storage', 'storage.modifier', 'storage.type', 'variable.language', 'markup.heading']],
+  ['operator', ['keyword.operator']],
+  ['string', ['string', 'punctuation.definition.string', 'markup.inline.raw']],
+  ['string.escape', ['constant.character.escape']],
+  ['regexp', ['string.regexp']],
+  ['number', ['constant.numeric']],
+  ['constant', ['constant.language', 'constant.character', 'support.constant', 'constant.other', 'variable.other.constant']],
+  ['type', ['entity.name.type', 'entity.name.class', 'support.type', 'support.class', 'entity.other.inherited-class', 'entity.name.namespace']],
+  ['predefined', ['entity.name.function', 'support.function', 'meta.decorator', 'entity.name.function.decorator', 'markup.underline.link']],
+  ['delimiter', ['punctuation', 'meta.brace']],
+  ['tag', ['entity.name.tag']],
+  ['attribute.name', ['entity.other.attribute-name', 'support.type.property-name', 'meta.object-literal.key']],
+  ['variable', ['variable', 'variable.parameter']]
+]
+
+function withTextMateScopes(rules: editor.ITokenThemeRule[]): editor.ITokenThemeRule[] {
+  const by = new Map(rules.map((r) => [r.token, r]))
+  const out = [...rules]
+  for (const [monarch, scopes] of TM_SCOPES) {
+    const base = by.get(monarch) ?? (monarch === 'predefined' ? by.get('function') : undefined) ?? (monarch === 'variable' ? by.get('') : undefined)
+    if (!base) continue
+    for (const token of scopes) if (!by.has(token)) out.push({ ...base, token })
+  }
+  out.push({ token: 'markup.bold', fontStyle: 'bold' }, { token: 'markup.italic', fontStyle: 'italic' })
+  return out
+}
+
+for (const t of Object.values(THEMES)) t.monaco = { ...t.monaco, rules: withTextMateScopes(t.monaco.rules) }
+
+/** Built-in themes first; extension themes are appended at runtime (extThemes.ts). */
+export const THEME_LIST: AppTheme[] = Object.values(THEMES)
+
+export const BUILTIN_THEMES = new Set(Object.keys(THEMES))
+
+/** Monaco only accepts [a-z0-9-] in theme names; extension theme ids contain more. */
+export function monacoThemeId(id: string): string {
+  return id.replace(/[^a-z0-9-]/gi, '-')
+}
 
 export function applyThemeVars(theme: AppTheme): void {
   const root = document.documentElement

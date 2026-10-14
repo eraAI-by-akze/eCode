@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore, setState, mergeDiagnostics, type Diagnostic } from '../store'
 import * as tasks from '../taskService'
+import * as dbg from '../debugService'
 import * as a from '../actions'
 import * as term from '../terminalService'
 import { basename, relative } from '../lib/path'
@@ -118,6 +119,61 @@ function OutputView() {
   )
 }
 
+function DebugConsole() {
+  const lines = useStore((s) => s.debugConsole)
+  const debug = useStore((s) => s.debug)
+  const [draft, setDraft] = useState('')
+  const [history, setHistory] = useState<string[]>([])
+  const [pos, setPos] = useState(-1)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [lines])
+  const paused = debug?.status === 'paused'
+  return (
+    <div className="debug-console">
+      <div className="debug-console-log" ref={ref}>
+        {!lines.length && <div className="panel-empty muted">Вывод программы и результаты выражений появятся здесь. F6 — начать отладку.</div>}
+        {lines.map((l) => (
+          <div key={l.id} className={`dc-line dc-${l.kind}`}>
+            {l.kind === 'input' && <span className="dc-prompt">›</span>}
+            {l.kind === 'result' && <span className="dc-prompt">‹</span>}
+            {l.text}
+          </div>
+        ))}
+      </div>
+      <div className={`debug-console-input ${paused ? '' : 'disabled'}`}>
+        <span className="dc-prompt">›</span>
+        <input
+          value={draft}
+          disabled={!debug}
+          placeholder={paused ? 'Выражение (Enter — вычислить)' : debug ? 'Поставьте программу на паузу, чтобы вычислять выражения' : 'Нет сеанса отладки'}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && draft.trim()) {
+              void dbg.replEvaluate(draft.trim())
+              setHistory((h) => [draft.trim(), ...h.filter((x) => x !== draft.trim())].slice(0, 50))
+              setDraft('')
+              setPos(-1)
+            } else if (e.key === 'ArrowUp' && history.length) {
+              const p = Math.min(pos + 1, history.length - 1)
+              setPos(p)
+              setDraft(history[p])
+              e.preventDefault()
+            } else if (e.key === 'ArrowDown') {
+              const p = Math.max(pos - 1, -1)
+              setPos(p)
+              setDraft(p < 0 ? '' : history[p])
+              e.preventDefault()
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function ProblemsView() {
   const diagnostics = useAllDiagnostics()
   const root = useStore((s) => s.root)
@@ -175,6 +231,7 @@ export function Panel() {
   const all = useAllDiagnostics()
   const problemCount = Object.values(all).reduce((n, l) => n + l.filter((d) => d.severity === 'error' || d.severity === 'warning').length, 0)
   const running = useStore((s) => !!s.task)
+  const debugging = useStore((s) => !!s.debug)
 
   return (
     <section className="panel glass">
@@ -187,6 +244,9 @@ export function Panel() {
         </button>
         <button className={`panel-tab ${tab === 'output' ? 'active' : ''}`} onClick={() => setState({ panelTab: 'output' })}>
           Вывод {running && <span className="spinner tiny" />}
+        </button>
+        <button className={`panel-tab ${tab === 'debug' ? 'active' : ''}`} onClick={() => setState({ panelTab: 'debug' })}>
+          Консоль отладки {debugging && <span className="live-dot" />}
         </button>
         <button className="panel-action" title="Собрать (Ctrl+Shift+B)" onClick={() => void tasks.runGroup('build')}>
           <IconHammer size={13} />
@@ -225,6 +285,13 @@ export function Panel() {
             </div>
           </>
         )}
+        {tab === 'debug' && (
+          <div className="header-actions">
+            <button title="Очистить консоль" onClick={() => dbg.clearConsole()}>
+              <IconTrash size={14} />
+            </button>
+          </div>
+        )}
         <div className="header-actions">
           <button title="Скрыть панель" onClick={() => a.togglePanel()}>
             <IconClose size={14} />
@@ -237,6 +304,7 @@ export function Panel() {
         </div>
         {tab === 'problems' && <ProblemsView />}
         {tab === 'output' && <OutputView />}
+        {tab === 'debug' && <DebugConsole />}
       </div>
     </section>
   )

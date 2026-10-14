@@ -12,6 +12,7 @@ import {
   IconCollapse,
   IconFilePlus,
   IconFolderOpen,
+  FolderIcon,
   IconFolderPlus,
   IconRefresh
 } from './Icons'
@@ -350,7 +351,7 @@ export function Explorer() {
                     <span className="chev-spacer" />
                   )}
                   {entry.isDir ? (
-                    <span className={`folder-icon ${open ? 'open' : ''}`} />
+                    <FolderIcon name={entry.name} open={open} />
                   ) : (
                     <FileIcon name={entry.name} />
                   )}

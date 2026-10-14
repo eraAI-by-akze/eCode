@@ -69,5 +69,32 @@
         ]
       }
     }
+  ],
+  "debuggers": [
+    {
+      "type": "debugpy",
+      "types": [
+        "python"
+      ],
+      "label": "Python: текущий файл",
+      "languages": [
+        "python"
+      ],
+      "adapter": {
+        "command": "${python}",
+        "args": [
+          "-m",
+          "debugpy.adapter"
+        ]
+      },
+      "install": "${python} -m pip install debugpy",
+      "launch": {
+        "program": "${file}",
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "justMyCode": true,
+        "showReturnValue": true
+      }
+    }
   ]
 }

@@ -9,6 +9,7 @@ import { EditorArea } from './components/EditorArea'
 import { Panel } from './components/Panel'
 import { StatusBar } from './components/StatusBar'
 import { CommandPalette } from './components/CommandPalette'
+import { installVsix } from './extensionService'
 
 const api = window.ecode
 
@@ -55,6 +56,11 @@ function Resizer({
 }
 
 async function openDropped(paths: string[]): Promise<void> {
+  // A dropped .vsix installs as an extension.
+  const vsix = paths.filter((p) => p.toLowerCase().endsWith('.vsix'))
+  for (const p of vsix) await installVsix(p)
+  paths = paths.filter((p) => !vsix.includes(p))
+  if (!paths.length) return
   for (const p of paths) {
     if (!p) continue
     const st = await api.stat(p)

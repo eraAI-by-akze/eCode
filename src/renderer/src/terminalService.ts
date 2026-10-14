@@ -37,7 +37,14 @@ function fontSize(): number {
 function listen(): void {
   if (listening) return
   listening = true
-  api.onTermData((id, data) => sessions.get(id)?.term.write(data))
+  api.onTermData((id, data) => {
+    sessions.get(id)?.term.write(data)
+    const ready = firstOutput.get(id)
+    if (ready) {
+      firstOutput.delete(id)
+      ready()
+    }
+  })
   api.onTermExit((id) => closeTerminal(id, false))
   // Follow theme and font changes.
   let prev = getState().settings
@@ -199,5 +206,31 @@ export async function runInTerminal(command: string): Promise<void> {
   if (id === null) id = await createTerminal()
   setState({ panelOpen: true, panelTab: 'terminal', activeTerminal: id })
   // A PTY expects Enter as CR; the pipe fallback needs a real newline.
+  api.termWrite(id, command + (sessions.get(id)?.pty ? '\r' : isWin ? '\r\n' : '\n'))
+}
+
+const dedicated = new Map<string, number>()
+/** Resolves when a new terminal prints for the first time (its prompt). */
+const firstOutput = new Map<number, () => void>()
+
+/** Run in a terminal of its own (reused per key), e.g. the program being debugged. */
+export async function runInDedicatedTerminal(key: string, title: string, command: string): Promise<void> {
+  let id = dedicated.get(key)
+  if (id === undefined || !sessions.has(id)) {
+    listen()
+    let resolveReady: () => void = () => {}
+    const ready = new Promise<void>((r) => (resolveReady = r))
+    id = await createTerminal()
+    firstOutput.set(id, resolveReady)
+    dedicated.set(key, id)
+    // Show it first so it has its real size, and wait for the prompt: typing earlier
+    // makes the shell echo and wrap the command twice.
+    setState({ panelOpen: true, panelTab: 'terminal', activeTerminal: id })
+    await Promise.race([ready, new Promise((r) => setTimeout(r, 1500))])
+    await new Promise((r) => setTimeout(r, 200))
+    const tid = id
+    setState((st) => ({ terminals: st.terminals.map((t) => (t.id === tid ? { ...t, title } : t)) }))
+  }
+  setState({ panelOpen: true, panelTab: 'terminal', activeTerminal: id })
   api.termWrite(id, command + (sessions.get(id)?.pty ? '\r' : isWin ? '\r\n' : '\n'))
 }

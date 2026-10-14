@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.1.0",
+    "fflate": "~0.8.3",
     "node-pty": "1.1.0",
     "pyright": "1.1.390",
     "typescript": "5.9.3",
@@ -45,6 +46,8 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "vite": "^5.0.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2",
     "zustand": "^4.5.0"
   },
   "author": {

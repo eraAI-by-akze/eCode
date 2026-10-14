@@ -27,6 +27,8 @@ let listening = false
 let current: { pid: number; parser: ProblemParser; pending: string; taskId: string; cwd: string } | null = null
 /** Folder of the last background task; compiler paths in the Output panel are relative to it. */
 let lastCwd = ''
+/** Callers waiting for the current background task (preLaunchTask of a debug session). */
+let waiters: ((code: number | null) => void)[] = []
 
 // ─────────────────────────── variables ───────────────────────────
 
@@ -155,6 +157,9 @@ function finish(code: number | null): void {
   appendOutput(`\n${code === 0 ? '✓' : '✗'} ${run.label} — код ${code ?? '—'}, ${(ms / 1000).toFixed(1)} с\n`)
   setState({ task: null, lastTask: { taskId: run.taskId, label: run.label, code, errors, warnings, ms } })
   current = null
+  const done = waiters
+  waiters = []
+  for (const w of done) w(code)
   if (code === 0) toast(`${run.label}: готово${warnings ? `, предупреждений: ${warnings}` : ''}`, 'success')
   else if (!errors && warnings) {
     // Linters exit non-zero for warnings alone.
@@ -219,6 +224,25 @@ export async function runTask(entry: Contributed<PluginTask>): Promise<void> {
   const pid = await api.taskRun(command, cwd)
   current = { pid, parser: new ProblemParser(matchers(task), task.label), pending: '', taskId: task.id, cwd }
   setState({ task: { pid, taskId: task.id, label: task.label, command, cwd, startedAt: Date.now() } })
+}
+
+/** Run a background task and resolve with its exit code (null if it couldn't start). */
+export async function runTaskAndWait(entry: Contributed<PluginTask>): Promise<number | null> {
+  let settled: { code: number | null } | null = null
+  let resolveWait: (code: number | null) => void = () => {}
+  const waiter = (code: number | null): void => {
+    settled = { code }
+    resolveWait(code)
+  }
+  waiters.push(waiter)
+  await runTask(entry)
+  if (settled) return (settled as { code: number | null }).code
+  // Terminal tasks and tasks that failed to start never report back.
+  if (!getState().task) {
+    waiters = waiters.filter((w) => w !== waiter)
+    return entry.item.terminal ? 0 : null
+  }
+  return new Promise((resolve) => (resolveWait = resolve))
 }
 
 export function stopTask(): void {
@@ -313,4 +337,33 @@ export function openProblemLine(line: string): boolean {
   if (!p) return false
   void openFile(resolvePath(lastCwd || getState().root || '', p.file), { line: p.line, column: p.column })
   return true
+}
+
+/** Run a command quietly and collect its output (no Output panel, no problems). */
+export async function captureCommand(command: string, cwd: string, timeoutMs = 15000): Promise<{ code: number | null; out: string }> {
+  let out = ''
+  let pid = -1
+  let early: { code: number | null } | null = null
+  const chunks: [number, string][] = []
+  let finish: (code: number | null) => void = (code) => (early = { code })
+  const offOut = api.onTaskOutput((id, data) => (pid === id ? (out += data) : chunks.push([id, data])))
+  const offExit = api.onTaskExit((id, code) => {
+    if (id === pid) finish(code)
+  })
+  try {
+    pid = await api.taskRun(command, cwd)
+    for (const [id, data] of chunks) if (id === pid) out += data
+    const code = await new Promise<number | null>((resolve) => {
+      if (early) return resolve(early.code)
+      finish = resolve
+      setTimeout(() => {
+        api.taskKill(pid)
+        resolve(null)
+      }, timeoutMs)
+    })
+    return { code, out: out.replace(ANSI, '') }
+  } finally {
+    offOut()
+    offExit()
+  }
 }

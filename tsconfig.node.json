@@ -19,6 +19,7 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",
-    "vite.tauri.config.ts"
+    "vite.tauri.config.ts",
+    "vite.shared.ts"
   ]
 }

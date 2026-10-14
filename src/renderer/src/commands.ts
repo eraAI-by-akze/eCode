@@ -4,6 +4,9 @@ import * as scm from './scm'
 import * as term from './terminalService'
 import * as era from './eraService'
 import * as tasks from './taskService'
+import * as dbg from './debugService'
+import * as ext from './extensionService'
+import * as dbgEd from './debugEditor'
 import { getState } from './store'
 import { extname, isUntitled } from './lib/path'
 
@@ -20,6 +23,9 @@ export interface Command {
 
 const hasFile = (): boolean => !!getState().active
 const hasRoot = (): boolean => !!getState().root
+const debugging = (): boolean => !!getState().debug
+const paused = (): boolean => getState().debug?.status === 'paused'
+const running = (): boolean => getState().debug?.status === 'running'
 const hasRepo = (): boolean => !!getState().git
 const hasRealFile = (): boolean => {
   const p = getState().active
@@ -124,6 +130,25 @@ export const COMMANDS: Command[] = [
   { id: 'gitBranch', label: 'Git: сменить ветку…', run: () => scm.pickBranch(), when: hasRepo },
   { id: 'gitInit', label: 'Git: инициализировать репозиторий', run: () => scm.initRepo(), when: () => hasRoot() && !hasRepo() },
   { id: 'tasks.run', label: 'Задачи: выполнить…', run: () => void tasks.runGroup('any'), when: hasRoot },
+  // Debugging; listed before the build commands so F5 / Shift+F5 mean continue / stop while a session runs.
+  { id: 'debug.pick', label: 'Отладка: выбрать конфигурацию…', run: () => void dbg.startDebugging('?'), when: hasRoot },
+  { id: 'debug.continue', label: 'Отладка: продолжить', keys: ['f5'], run: () => void dbg.continueExecution(), when: paused, global: true },
+  { id: 'debug.pause', label: 'Отладка: пауза', keys: ['f6'], run: () => void dbg.pauseExecution(), when: running, global: true },
+  { id: 'debug.start', label: 'Отладка: начать', keys: ['f6'], run: () => void dbg.startDebugging(), when: () => hasRoot() && getState().debug?.status !== 'running', global: true },
+  { id: 'debug.stepOver', label: 'Отладка: шаг с обходом', keys: ['f10'], run: () => void dbg.stepOver(), when: paused, global: true },
+  { id: 'debug.stepInto', label: 'Отладка: шаг с заходом', keys: ['f11'], run: () => void dbg.stepInto(), when: paused, global: true },
+  { id: 'debug.stepOut', label: 'Отладка: шаг с выходом', keys: ['shift+f11'], run: () => void dbg.stepOut(), when: paused, global: true },
+  { id: 'debug.stop', label: 'Отладка: остановить', keys: ['shift+f5'], run: () => void dbg.stopDebugging(), when: debugging, global: true },
+  { id: 'debug.restart', label: 'Отладка: перезапустить', keys: ['mod+shift+f5'], run: () => void dbg.restartDebugging(), when: debugging, global: true },
+  { id: 'debug.toggleBreakpoint', label: 'Точка останова: поставить/убрать', keys: ['f9'], run: () => dbgEd.toggleAtCursor(), when: hasRealFile },
+  { id: 'debug.conditional', label: 'Точка останова: с условием…', run: () => dbgEd.conditionalAtCursor('condition'), when: hasRealFile },
+  { id: 'debug.logpoint', label: 'Точка журнала…', run: () => dbgEd.conditionalAtCursor('log'), when: hasRealFile },
+  { id: 'debug.removeAll', label: 'Точки останова: удалить все', run: () => dbg.removeAllBreakpoints(), when: () => getState().breakpoints.length > 0 },
+  { id: 'extensions.installVsix', label: 'Расширения: установить из VSIX…', run: () => void ext.pickAndInstallVsix() },
+  { id: 'extensions.reload', label: 'Расширения: перечитать', run: () => void ext.loadExtensions() },
+  { id: 'iconTheme', label: 'Тема значков файлов…', run: () => a.pickIconTheme() },
+  { id: 'debug.view', label: 'Запуск и отладка', keys: ['mod+shift+d'], run: () => a.focusSidebar('debug'), global: true },
+  { id: 'debug.console', label: 'Консоль отладки', keys: ['mod+shift+y'], run: () => a.showPanel('debug'), global: true },
   { id: 'tasks.quickBuild', label: 'Собрать (последняя задача сборки)', keys: ['f5'], run: () => void tasks.quickBuild(), when: hasRoot, global: true },
   { id: 'tasks.build', label: 'Задачи: собрать проект…', keys: ['mod+shift+b'], run: () => void tasks.runGroup('build'), when: hasRoot, global: true },
   { id: 'tasks.check', label: 'Задачи: проверить проект на ошибки', run: () => void tasks.runGroup('check'), when: hasRoot },
@@ -132,7 +157,7 @@ export const COMMANDS: Command[] = [
   { id: 'tasks.stop', label: 'Задачи: остановить', keys: ['shift+f5'], run: () => tasks.stopTask(), when: () => !!getState().task, global: true },
   { id: 'tasks.clear', label: 'Задачи: очистить найденные ошибки', run: () => tasks.clearTaskProblems() },
   { id: 'output', label: 'Показать вывод задач', run: () => a.showPanel('output') },
-  { id: 'plugins', label: 'Плагины', keys: ['mod+shift+x'], run: () => a.focusSidebar('plugins'), global: true },
+  { id: 'plugins', label: 'Расширения и плагины', keys: ['mod+shift+x'], run: () => a.focusSidebar('plugins'), global: true },
   { id: 'errorLens', label: 'Ошибки в строке (Error Lens): вкл/выкл', run: () => a.updateSettings({ errorLens: !getState().settings.errorLens }) },
   { id: 'aiChat', label: 'eraAI: открыть чат', keys: ['mod+shift+a'], run: () => a.focusSidebar('ai'), global: true },
   { id: 'aiDeploy', label: 'eraAI: развернуть модель', run: () => void era.deploy() },
@@ -208,13 +233,18 @@ function normalizeKeys(k: string): string {
   return [...MOD_ORDER.filter((m) => mods.has(m)), key].join('+')
 }
 
-const byKeys = new Map<string, Command>()
+// Several commands may share a key (F5: continue while paused, otherwise build).
+const byKeys = new Map<string, Command[]>()
 for (const c of COMMANDS) {
-  for (const k of c.keys ?? []) byKeys.set(normalizeKeys(k), c)
+  for (const k of c.keys ?? []) {
+    const key = normalizeKeys(k)
+    byKeys.set(key, [...(byKeys.get(key) ?? []), c])
+  }
 }
 
 export function commandForEvent(e: KeyboardEvent): Command | undefined {
-  return byKeys.get(eventToKeys(e))
+  const list = byKeys.get(eventToKeys(e))
+  return list?.find((c) => !c.when || c.when()) ?? list?.[0]
 }
 
 export function formatKeys(keys?: string[]): string {
